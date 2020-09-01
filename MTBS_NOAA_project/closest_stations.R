@@ -6,9 +6,15 @@ library(profvis)
 library(rnoaa)
 library(lubridate)
 
-#download mtbs file
-#code modified from https://github.com/mbjoseph/mtbs-data/blob/master/get-mtbs-data.R
+#########
+#Section 1: Download MTBS fire occurence data, download NOAA stations and inventory data
+#firedata dataframe contains data on when and wear fires occured in the US, and how many acres they burned
+#stations dataframe contains data on where NOAA weather stations are
+#inventory dataframe contains data on what weather variables each station observes,
+#   and the timeframes of observation for each variable
+#########
 
+#code modified from https://github.com/mbjoseph/mtbs-data/blob/master/get-mtbs-data.R
 #make mtbs directory
 if(!dir.exists("mtbs")){
   dir.create("mtbs")
@@ -36,7 +42,7 @@ if(!file.exists('mtbs/mtbs_data.csv')){
 firedata <- read.csv('mtbs/mtbs_data.csv')
 
 #convert ignition date variable from factor to date and store values numerically
-firedata$IG_DATE <- as.Date(firedata$Ig_Date)
+firedata$IG_DATE <- as_date(firedata$Ig_Date)
 firedata$IG_YEAR <- as.numeric(format(firedata$IG_DATE, '%Y'))
 firedata$IG_MONTH <- as.numeric(format(firedata$IG_DATE, '%m'))
 firedata$IG_DAY <- as.numeric(format(firedata$IG_DATE, '%d'))
@@ -69,13 +75,18 @@ inv <- read.fortran("mtbs/inventory.txt",
 invhdrs <- c("ID", "LAT", "LON", "ELEM" , "FIRST", "LAST")
 names(inv) <- invhdrs
 
+############
+#Section 2: Transform data. Remove irrelevant data, so the dataframes only include data in the US, data featuring
+#desired weather variables, and record variable observation timeframes from the inv dataframe into the stations dataframe
+############
+
+#Possible future modification: allow user to specify which variables they want to track
+#Limitations of this modification: the code would take forever to run again, and there is less
+#   data observed for other variables so there would be more NAs
+
 #only include inventory rows for desired observations
 inv$ELEM <- as.factor(inv$ELEM)
 inv <- inv[which(inv$ELEM == "TMAX" | inv$ELEM == "TMIN" | inv$ELEM == "PRCP"),]
-
-##############
-#Modify so the user can input the desired observation variables
-##############
 
 #create subset dataframe containing only stations in the US
 statelist <- c("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "PR", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
@@ -162,11 +173,17 @@ for(i in 1:nrow(inv)){
 stationsUS <- stationsUS[which(stationsUS$decom == FALSE),]
 proc.time() - ptm
 
+#save prescribed fire data separately
+rxFiredata <- firedata[which(firedata$Fire_Type == "Prescribed"),]
 #remove all fires that are not wildfires
 firedata <- firedata[which(firedata$Fire_Type == "Wildfire"),]
 
-#add fields to mtbs firedata
-#dummy station created with coordinates outside the US
+##########
+#Section 3: For each wildfire, identify the closest weather station
+##########
+
+#add closest station fields to mtbs firedata
+#fields initiated as a dummy station located outside the US
 firedata$closestStnID <- '0'
 firedata$closestStnID <- "dummy station"
 firedata$closestStnLong <- 90
@@ -206,14 +223,13 @@ for (row in 1:nrow(firedata)){
   }
 }
 proc.time()-ptm
-##########
-#edit this to properly convert from factor to chr
-#then try noaaExtract fn
-firedata$closestStnID2 <- toString(firedata$closestStnID)
-#########
 
 #save closest station data
 write.csv(firedata, "mtbs/mtbs_data_stn.csv")
+
+#########
+#Section 4: Download noaa weather data for the stations identified in section 3
+#########
 
 #to upload the dataframe, if the mtbs_data.csv file has already been created
 firedata <- read.csv("mtbs/mtbs_data_stn.csv")
@@ -283,12 +299,15 @@ print(paste0("number of corrupted files: ", length(corruptedFiles)))
 ########################################
 #end of code blocks to remove corrupted files
 
+#########
+#Section 5: extract weather data and input to firedata dataframe
+#########
+
 #Define function to extract weather data and store in firedata dataframe
 #ELMn refers to the ELM element n days before the fire
 #Ex: TMAX0 refers to the TMAX the day of the fire
-
-#######better version of noaaExtract:
 noaaExtract <- function(stn, date, elm){
+  print(paste0(stn, " ", elm, " ", as.Date(date)))
   #upload dataframe, select rows of the given year and month
   if(!file.exists(paste0("noaa/noaaout/", stn, ".csv"))){
     print(paste0("Fill missing: ", stn))
@@ -296,77 +315,45 @@ noaaExtract <- function(stn, date, elm){
   }
   if(file.exists(paste0("noaa/noaaout/", stn, ".csv"))){
     df <- read.csv(paste0("noaa/noaaout/", stn, ".csv"))
-    df <- df[which(df$year == year(date)),]
-    df <- df[which(df$month == month(date)),]
-    df <- df[which(df$element == elm),]
+    df <- df[which(df$year == year(date) & df$month == month(date) & df$element == elm),]
     day = day(date)
     col_name <- paste0("VALUE", day)
     df <- select(df, col_name)
+    if(nrow(df) == 0){return("NA")}
     out <- df[1,1]
     return(out)
   }
 }
-
 vNoaaExtract <- Vectorize(noaaExtract, vectorize.args = c("stn", "date"))
+
 #convert ID names from factors to strings
 firedata$closestStnID2 <- sapply(firedata$closestStnID, as.character)
 
-firedata$TMAX0 <- 0
-firedata$TMIN0 <- 0
-firedata$PRCP0 <- 0
-firedata$TMAX0 <- vNoaaExtract(firedata$closestStnID2, firedata$IG_DATE, "TMAX")
-firedata$TMIN0 <- vNoaaExtract(firedata$closestStnID2, firedata$IG_DATE, "TMIN")
-firedata$PRCP0 <- vNoaaExtract(firedata$closestStnID2, firedata$IG_DATE, "TMAX")
-
-#these three loops no longer needed, superseeded by above vectorized code
-for(i in 1:nrow(firedata)){
-  firedata$TMAX0[i]<- noaaExtract(firedata$closestStnID2[i], firedata$IG_DATE[i], "TMAX")
+##########
+#Input weather data for each fire going back 21 days
+ptm <- proc.time()
+for(i in 0:21){
   print(i)
+  if(!(paste0("TMAX", i) %in% names(firedata))){
+    firedata[,ncol(firedata) + 1] <- vNoaaExtract(firedata$closestStnID2, as.Date(firedata$IG_DATE)-i, "TMAX")
+    names(firedata)[ncol(firedata)]<-paste0("TMAX", i)
+  }
+  if(!(paste0("TMAX", i) %in% names(firedata))){
+    firedata[,ncol(firedata) + 1] <- vNoaaExtract(firedata$closestStnID2, as.Date(firedata$IG_DATE)-i, "TMIN")
+    names(firedata)[ncol(firedata)]<-paste0("TMIN", i) 
+  }
+  if(!(paste0("TMAX", i) %in% names(firedata))){
+    firedata[,ncol(firedata) + 1] <- vNoaaExtract(firedata$closestStnID2, as.Date(firedata$IG_DATE)-i, "PRCP")
+    names(firedata)[ncol(firedata)]<-paste0("PRCP", i) 
+  }
 }
-
-for(i in 1:nrow(firedata)){
-  firedata$TMIN0[i]<- noaaExtract(firedata$closestStnID2[i], firedata$IG_DATE[i], "TMIN")
-  print(i)
-  
-}
-
-for(i in 1:nrow(firedata)){
-  firedata$PRCP0[i]<- noaaExtract(firedata$closestStnID2[i], firedata$IG_DATE[i], "PRCP")
-  print(i)
-  
-}
-
-#Include data values of 1 day before the fire:
-#Eventually figure out how to loop this data
-firedata$TMAX1 <- 0
-firedata$TMIN1 <- 0
-firedata$PRCP1 <- 0
-firedata$elm <- "TMAX"
-#firedata$TMAX1 <- noaaExtract(toString(firedata$closestStnID), firedata$IG_DATE, firedata$elm)
-firedata$elm <- "TMIN"
-#firedata$TMIN1 <- noaaExtract(toString(firedata$closestStnID), firedata$IG_DATE, firedata$elm)
-firedata$elm <- "PRCP"
-#firedata$PRCP1 <- noaaExtract(toString(firedata$closestStnID), firedata$IG_DATE, firedata$elm)
-
-for(i in 1:nrow(firedata)){
-  firedata$TMAX0[i]<- noaaExtract(firedata$closestStnID2[i], as.Date(firedata$IG_DATE[i])-1, "TMAX")
-  print(paste0("TMAX1 ", i))
-}
-
-for(i in 1:nrow(firedata)){
-  firedata$TMIN0[i]<- noaaExtract(firedata$closestStnID2[i], as.Date(firedata$IG_DATE[i])-1, "TMIN")
-  print(paste0("TMIN1 ", i))
-  
-}
-
-for(i in 1:nrow(firedata)){
-  firedata$PRCP0[i]<- noaaExtract(firedata$closestStnID2[i], as.Date(firedata$IG_DATE[i])-1, "PRCP")
-  print(paste0("PRCP1 ", i))
-  
-}
+ptm - proc.time()
 
 write.csv(firedata, "mtbs/mtbs_data_stn.csv")
 
+#########
+#Section 6: Exploratory data analysis and data visualization
+#########
 firedata <- read.csv("mtbs/mtbs_data_stn.csv")
 
 #only analyze fires whose closest weather station is within 8 km (~5 miles)
@@ -375,20 +362,34 @@ firedataDist <- firedata[which(firedata$closestStnDist < 8),]
 
 
 #Data visualizations:
+#firedataELM records all fires for which the ELM field (TMAX, TMIN or PRCP) is not NA, and which have
+#weather stations less than 8 km away
+
+#The assessment type (Initial vs Extended) was determined based on the type of ecosystem.
+#Extended assessments were used for forests, woodlands, shrublands, etc. where wildfires have longer lasting impacts
+#Initial assessments were used for grasslands where ecosystems tend to recover by the next growing season
 
 #TMAX vs ACRES
 firedataTMAX <- firedataDist[which(!is.na(firedataDist$TMAX0)),]
-attach(firedataTMAX)
-summary(TMAX0)
+firedataTMAXinitial <- firedataTMAX[which(firedataTMAX$Asmnt_Type == "Initial" | firedataTMAX$Asmnt_Type == "Initial (SS)"),]
+firedataTMAXextended <- firedataTMAX[which(firedataTMAX$Asmnt_Type == "Extended"),]
 
-#plot with outliers
+#plot tmax0 vs acres, initial assessments
+attach(firedataTMAXinitial)
+summary(TMAX0)
+plot(TMAX0, logAcres)
+abline(lm(logAcres~TMAX0), col="red") # regression line (y~x)
+lines(lowess(TMAX0,logAcres, delta = 0.01), col="blue") # lowess line (x,y)
+cor(TMAX0, logAcres)
+detach(firedataTMAXinitial)
+
+attach(firedataTMAXextended)
+summary(TMAX0)
 plot(TMAX0, Acres)
 abline(lm(Acres~TMAX0), col="red") # regression line (y~x)
 lines(lowess(TMAX0,Acres, delta = 0.01), col="blue") # lowess line (x,y)
 cor(TMAX0, Acres)
-#returns 0.0220592, so TMAX and Acres are very very weakly correlated
-#there are several outliers visible here corresponding to fires that burned particularly large areas
-#note that most of these outliers occured when the temperature max was above the median
+detach(firedataTMAXextended)
 
 #to better visualize the trends, we remove from the dataset all fires with more than 6,000 total acres burned
 detach(firedataTMAX)
@@ -404,3 +405,14 @@ cor(TMAX0, Acres)
 
 #TMIN VS ACRES
 firedataTMIN <- firedataDist[which(!is.na(firedataDist$TMAX0)),]
+
+#PRCP VS ACRES
+#HEY NOA! Remove NA's ya dweeb.
+#plot tmax0 vs acres, initial assessments
+attach(firedataTMAXinitial)
+summary(PRCP0)
+plot(PRCP0, Acres)
+abline(lm(Acres~PRCP0), col="red") # regression line (y~x)
+lines(lowess(PRCP0,Acres, delta = 0.01), col="blue") # lowess line (x,y)
+cor(PRCP0, Acres)
+detach(firedataTMAXinitial)
