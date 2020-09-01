@@ -77,7 +77,7 @@ names(inv) <- invhdrs
 
 ############
 #Section 2: Transform data. Remove irrelevant data, so the dataframes only include data in the US, data featuring
-#desired weather variables, and record variable observation timeframes from the inv dataframe into the stations dataframe
+#desired weather variables, and move variable observation timeframes from the inv dataframe into the stations dataframe
 ############
 
 #Possible future modification: allow user to specify which variables they want to track
@@ -350,6 +350,11 @@ for(i in 0:21){
 ptm - proc.time()
 
 write.csv(firedata, "mtbs/mtbs_data_stn.csv")
+
+#Want to add wind to data:
+for(i in 1:length(listOfStns)){
+  
+}
 
 #########
 #Section 6: Exploratory data analysis and data visualization
