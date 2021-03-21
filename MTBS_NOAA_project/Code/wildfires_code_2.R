@@ -12,6 +12,11 @@ library(tidyverse)
 library(data.table)
 library(ggplot2)
 
+#This version (superseded by versions a and b) is to be run locally, and only
+#extracts weather data 3 days before until 3 days after each fire
+#Updated versions (2a and 2b sequentially) extract data 21 days before until
+#35 days after each fire
+
 
 #########
 #Section 1: Download noaa weather data for the stations identified in wildfires_code_1.R
@@ -143,20 +148,6 @@ for(i in -3:3){
 }
 ptm-proc.time()
 
-#Above code segment names columns as "TMAX.3" instead of "TMAX-3". Corrected below.
-#Run again to see if this segment is still needed
-
-names(firedata)[names(firedata) == "TMAX-3"] <- "TMAX.3"
-names(firedata)[names(firedata) == "TMAX-2"] <- "TMAX.2"
-names(firedata)[names(firedata) == "TMAX-1"] <- "TMAX.1"
-names(firedata)[names(firedata) == "TMIN-3"] <- "TMIN.3"
-names(firedata)[names(firedata) == "TMIN-2"] <- "TMIN.2"
-names(firedata)[names(firedata) == "TMIN-1"] <- "TMIN.1"
-names(firedata)[names(firedata) == "PRCP-3"] <- "PRCP.3"
-names(firedata)[names(firedata) == "PRCP-2"] <- "PRCP.2"
-names(firedata)[names(firedata) == "PRCP-1"] <- "PRCP.1"
-
-#rxFiredata <- read.csv('Data/mtbs/prescribed_noaa.csv')
 ############
 
 #Section 3
@@ -229,7 +220,7 @@ for(i in -3:3){
   print(paste0("Number of flagged obs: ", nrow(df)))
   if(nrow(df)>0){
     for(row in 1:nrow(df)){
-      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "PRCP", stnID = c(as.character(df$closestStnID_TMIN[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
+      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "PRCP", stnID = c(as.character(df$closestStnID_PRCP[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
       colnames(newrow)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
       flaggedObs<-rbind(flaggedObs, newrow)
     } 

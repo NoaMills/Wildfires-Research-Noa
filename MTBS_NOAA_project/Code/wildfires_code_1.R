@@ -227,7 +227,7 @@ earth.dist <- function (long1, lat1, long2, lat2)
 #identify closest stations for wildfire data
 ptm <- proc.time()
 for (row in 1:nrow(firedata)){
-  if (row %% 10 == 0) {print(paste0("Row: ",row))}
+  if (row %% 500 == 0) {print(paste0("Row: ",row))}
   for (stn in 1:nrow(stationsUS)){
     #find closest station with TMAX observations during time period
     if (firedata$IG_YEAR[row] <= stationsUS$endTMAX[stn] & firedata$IG_YEAR[row] >= stationsUS$startTMAX[stn] & earth.dist(firedata$BurnBndLon[row], firedata$BurnBndLat[row], stationsUS$LON[stn], stationsUS$LAT[stn]) < 
@@ -258,5 +258,18 @@ for (row in 1:nrow(firedata)){
 }
 proc.time()-ptm
 
+firedataTMAX <- subset(firedata, select=-c(closestStnID_TMIN, closestStnID_PRCP, 
+                closestStnDist_TMIN, closestStnDist_PRCP, closestStnLat_TMIN, 
+                closestStnLat_PRCP, closestStnLong_TMIN, closestStnLong_PRCP))
+firedataTMIN <- subset(firedata, select=-c(closestStnID_TMAX, closestStnID_PRCP, 
+                closestStnDist_TMAX, closestStnDist_PRCP, closestStnLat_TMAX, 
+                closestStnLat_PRCP, closestStnLong_TMAX, closestStnLong_PRCP))
+firedataPRCP <- subset(firedata, select=-c(closestStnID_TMIN, closestStnID_TMAX, 
+                closestStnDist_TMIN, closestStnDist_TMAX, closestStnLat_TMIN, 
+                closestStnLat_TMAX, closestStnLong_TMIN, closestStnLong_TMAX))
+
 #save closest station data
 write.csv(firedata, "Data/firedata1.csv")
+write.csv(firedataTMAX, "Data/firedata1TMAX.csv")
+write.csv(firedataTMIN, "Data/firedata1TMIN.csv")
+write.csv(firedataPRCP, "Data/firedata1PRCP.csv")

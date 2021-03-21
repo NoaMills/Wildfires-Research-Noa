@@ -1,7 +1,7 @@
 Wildfires-Research-Noa
 Code written by Noa Mills under supervision on Dr. Zhu Kai
 
-The 5 code files wildfires_code_i {i=1,2,3} perform the following.
+The five code files wildfires_code_i {i=1,2,3,4,5} perform the following.
 The first three code files produce the data files firedatai.csv {i=1,2,3}
 
 wildfires_code_1
@@ -21,13 +21,14 @@ wildfires_code_1
       Saves stationsUS.csv dataframe which contains location, ID, and start/stop years of variable observations for stations in US only
 
 
-wildfires_code_2
-  Section 1:
+wildfires_code_2a
+  To be run on local computer
       Downloads NOAA weather data files for each station identified in section 2 of wildfires_code_1
       In previous runs, some of the data files have been corrupted. Created code to identify and redownload corrupted files.
         This should be fixed, but I kept the code to replace corrupted files
-  Section 2:
-      Extracts weather data from NOAA data files downloaded in section 3 and incorporate weather data in firedata dataframe
+wildfires_code_2b
+  To be run on remote computer
+      Extracts weather data from NOAA data files downloaded in section 2a and incorporates weather data in firedata dataframe
       Includes weather data for each variable from 3 days before the event until 3 days after
         TMAX.3 represents TMAX value 3 days before the fire, TMAX3 3 days after
         Option to increase this timeframe, especially for PRCP before the fire once I learn how to do cloud computing to speed up run time
