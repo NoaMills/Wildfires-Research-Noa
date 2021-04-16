@@ -29,15 +29,12 @@ wildfires_code_2a
 wildfires_code_2b
   To be run on remote computer
       Extracts weather data from NOAA data files downloaded in section 2a and incorporates weather data in firedata dataframe
-      Includes weather data for each variable from 3 days before the event until 3 days after
+      Includes weather data for each variable from 21 days before the event until 35 days after
         TMAX.3 represents TMAX value 3 days before the fire, TMAX3 3 days after
-        Option to increase this timeframe, especially for PRCP before the fire once I learn how to do cloud computing to speed up run time
-      Identify flagged weather observations and replace data
-        NOAA marks weather data with quality flags.
-        Data also considered 'flagged' if all observations (ie TMAX.3 until TMAX3) are NA
-        All variables (ie TMAX.3 until TMAX3) are replaced with values of the next closest station that has non-flagged values
-
-
+wildfires_code_2c
+  In progress
+      Identifies fires with too much missing or flagged weather data
+      For flagged fires, identifies next nearest weather stations and pulls weather data again
 
 wildfires_code_3
   Section 1:
