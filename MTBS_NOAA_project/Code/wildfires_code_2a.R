@@ -1,4 +1,5 @@
 #wildfires_code_2.R section 1, to be run on local computer
+#Downloads weather data based on closest stations
 #then run script file_transfer_1 to transfer code and data to remote repo
 #section 2 to be run on hummingbird
 

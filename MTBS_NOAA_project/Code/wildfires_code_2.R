@@ -154,13 +154,13 @@ ptm-proc.time()
 #Next, go through all the fires with measurements that were flagged and find the next closest stations
 
 #Build the flagged observations datafarme
-#stnID contains all previous stations that had flagged values
+#oldStns contains all previous stations that had flagged values
 #stations are consistent across days but not across variable types.
 #for example, if for a given fire, TMAX1 was flagged, then all values of TMAX will be replaced with values from the next nearest station, and TMAX and PRCP will remain the same
-flaggedObs<-data.frame(fireID=character(), elm=character(), stnID=list(c(character())), fireLong=numeric(), fireLat=numeric(), stnLong=numeric(), stnLat = numeric(), fireDate=character(), i=integer(), newStn = character(), Dist=numeric(), stringsAsFactors = FALSE)
+flaggedObs<-data.frame(fireID=character(), elm=character(), oldStns=list(c(character())), fireLong=numeric(), fireLat=numeric(), stnLong=numeric(), stnLat = numeric(), fireDate=character(), i=integer(), newStn = character(), Dist=numeric(), stringsAsFactors = FALSE)
 class(flaggedObs$fireDate) <- "Date"
-colnames(flaggedObs)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
-#flaggedObs<-rbind(flaggedObs, c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i"))
+colnames(flaggedObs)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+#flaggedObs<-rbind(flaggedObs, c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i"))
 for(i in -3:3){
   #identify all fires where TMAXi was flagged add to flagged obs data frame
   if(i<0){
@@ -178,8 +178,8 @@ for(i in -3:3){
   print(paste0("Number of flagged obs: ", nrow(df)))
   if(nrow(df)>0){
     for(row in 1:nrow(df)){
-      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "TMAX", stnID = c(as.character(df$closestStnID_TMAX[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMAX[row]), Dist = 9999, stringsAsFactors = FALSE)
-      colnames(newrow)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "TMAX", oldStns = c(as.character(df$closestStnID_TMAX[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMAX[row]), Dist = 9999, stringsAsFactors = FALSE)
+      colnames(newrow)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
       flaggedObs<-rbind(flaggedObs, newrow)
     } 
   }
@@ -199,8 +199,8 @@ for(i in -3:3){
   print(paste0("Number of flagged obs: ", nrow(df)))
   if(nrow(df)>0){
     for(row in 1:nrow(df)){
-      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "TMIN", stnID = c(as.character(df$closestStnID_TMIN[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
-      colnames(newrow)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "TMIN", oldStns = c(as.character(df$closestStnID_TMIN[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
+      colnames(newrow)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
       flaggedObs<-rbind(flaggedObs, newrow)
     } 
   }
@@ -220,8 +220,8 @@ for(i in -3:3){
   print(paste0("Number of flagged obs: ", nrow(df)))
   if(nrow(df)>0){
     for(row in 1:nrow(df)){
-      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "PRCP", stnID = c(as.character(df$closestStnID_PRCP[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
-      colnames(newrow)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+      newrow <- data.frame(fireID = as.character(df$Event_ID[row]), elm = "PRCP", oldStns = c(as.character(df$closestStnID_PRCP[row])), fireLong = as.numeric(df$BurnBndLon[row]), fireLat = as.numeric(df$BurnBndLat[row]), stnLong = as.numeric(df[[stnLongVarname]][row]), stnLat = as.numeric(df[[stnLatVarname]][row]),fireDate = as.Date(as.character(df$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(df$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
+      colnames(newrow)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
       flaggedObs<-rbind(flaggedObs, newrow)
     } 
   }
@@ -243,8 +243,8 @@ for (row in 1:nrow(dfna)){
   print(row)
   stnvarname = paste0("closestStnID_", dfna$elmNA[row])
   stnLongVarname = paste0("closestStnLong_", dfna$elmNA[row])
-  newrow <- data.frame(fireID = as.character(dfna$Event_ID[row]), elm = dfna$elmNA[row], stnID = c(as.character(dfna[[stnvarname]][row])), fireLong = as.numeric(dfna$BurnBndLon[row]), fireLat = as.numeric(dfna$BurnBndLat[row]), stnLong = as.numeric(dfna[[stnLongVarname]][row]), stnLat = as.numeric(dfna[[stnLatVarname]][row]),fireDate = as.Date(as.character(dfna$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(dfna$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
-  colnames(newrow)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+  newrow <- data.frame(fireID = as.character(dfna$Event_ID[row]), elm = dfna$elmNA[row], oldStns = c(as.character(dfna[[stnvarname]][row])), fireLong = as.numeric(dfna$BurnBndLon[row]), fireLat = as.numeric(dfna$BurnBndLat[row]), stnLong = as.numeric(dfna[[stnLongVarname]][row]), stnLat = as.numeric(dfna[[stnLatVarname]][row]),fireDate = as.Date(as.character(dfna$IG_DATE[row]), format='%Y-%m-%e'), i = as.numeric(i), newStn = as.character(dfna$closestStnID_TMIN[row]), Dist = 9999, stringsAsFactors = FALSE)
+  colnames(newrow)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
   flaggedObs<-rbind(flaggedObs, newrow)
 }
 
@@ -270,7 +270,7 @@ earth.dist <- function (long1, lat1, long2, lat2)
 #Next we iterate through the data frame, and for each observation, we find the next nearest station,
 #and pull the weather values from that station for the given element.
 #If the observations are not flagged, we remove the row from the data frame.
-#If the observations are flagged, we add the station name to stnID, which contains all the flagged stations.
+#If the observations are flagged, we add the station name to oldStns, which contains all the flagged stations.
 
 flaggedObs$stnLat <- -30
 flaggedObs$stnLong <- 90
@@ -279,9 +279,9 @@ flaggedObs$newStn <- ""
 while (nrow(flaggedObs) > 0){
   print(paste0("Number of flagged observations: ", nrow(flaggedObs)))
   #flaggedObsNext contains the rows that are still flagged.
-  flaggedObsNext<-data.frame(fireID=character(), elm=character(), stnID=list(c(character())), fireLong=numeric(), fireLat=numeric(), stnLong=numeric(), stnLat = numeric(), fireDate=character(), i=integer(), newStn = character(), Dist=numeric(), stringsAsFactors = FALSE)
+  flaggedObsNext<-data.frame(fireID=character(), elm=character(), oldStns=list(c(character())), fireLong=numeric(), fireLat=numeric(), stnLong=numeric(), stnLat = numeric(), fireDate=character(), i=integer(), newStn = character(), Dist=numeric(), stringsAsFactors = FALSE)
   class(flaggedObsNext$fireDate) <- "Date"
-  colnames(flaggedObsNext)<-c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
+  colnames(flaggedObsNext)<-c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i", "newStn", "Dist")
   flaggedObs$Dist <- 9999
   for (fire in 1:nrow(flaggedObs)){
     if(fire %% 10 == 0){print(paste0("finding station for fire ", fire, " out of ", nrow(flaggedObs)))}
@@ -289,7 +289,7 @@ while (nrow(flaggedObs) > 0){
     for (stn in 1:nrow(stationsUS)){
       #find closest station with TMAX observations during time period
       #print(stn)
-      if ((!stationsUS$ID[stn] %in% unlist(flaggedObs$stnID[fire])) & year(as.Date(flaggedObs$fireDate[fire])+flaggedObs$i[fire]) <= stationsUS$endTMAX[stn] & year(as.Date(flaggedObs$fireDate[fire])+flaggedObs$i[fire]) >= stationsUS$startTMAX[stn] &
+      if ((!stationsUS$ID[stn] %in% unlist(flaggedObs$oldStns[fire])) & year(as.Date(flaggedObs$fireDate[fire])+flaggedObs$i[fire]) <= stationsUS$endTMAX[stn] & year(as.Date(flaggedObs$fireDate[fire])+flaggedObs$i[fire]) >= stationsUS$startTMAX[stn] &
           earth.dist(flaggedObs$fireLong[fire], flaggedObs$fireLat[fire], stationsUS$LON[stn], stationsUS$LAT[stn])  < flaggedObs$Dist[fire]){
         #print(stn)
         flaggedObs$newStn[fire] <- toString(stationsUS$ID[stn])
@@ -333,8 +333,8 @@ while (nrow(flaggedObs) > 0){
       }
     }
     if (flagged){
-      #add station name to stnID list, add row to flaggedObsNext
-      flaggedObs[fire, "stnID"][[1]]=list(c(unlist(flaggedObs$stnID[fire]), flaggedObs$newStn[fire]))
+      #add station name to oldStns list, add row to flaggedObsNext
+      flaggedObs[fire, "oldStns"][[1]]=list(c(unlist(flaggedObs$oldStns[fire]), flaggedObs$newStn[fire]))
       flaggedObsNext <- rbind(flaggedObsNext, flaggedObs[fire,])
     }
     if (!flagged){
@@ -349,10 +349,10 @@ while (nrow(flaggedObs) > 0){
     }
     #does newval in next line need to be double bracketed?
     firedata[which(firedata$Event_ID == flaggedObs$fireID[fire]),varname]<-newval
-    flaggedObs[fire, "stnID"][[1]]=list(c(unlist(flaggedObs$stnID[fire]), flaggedObs$newStn))
+    flaggedObs[fire, "oldStns"][[1]]=list(c(unlist(flaggedObs$oldStns[fire]), flaggedObs$newStn))
   }
   
-  #flaggedObs<-rbind(flaggedObs, c("fireID", "elm", "stnID", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i"))
+  #flaggedObs<-rbind(flaggedObs, c("fireID", "elm", "oldStns", "fireLong", "fireLat", "stnLong", "stnLat", "fireDate", "i"))
   
   print(paste0("previous flagged observations: ", nrow(flaggedObs)))
   print(paste0("current flagged observations: ", nrow(flaggedObsNext)))
