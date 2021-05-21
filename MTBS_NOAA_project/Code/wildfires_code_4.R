@@ -15,14 +15,15 @@ library(mapproj)
 library(rgeos)
 library(rgdal)
 library(ggplot2)
+library(reshape2)
 
 #Data visualization
 
 firedata <- read.csv("Data/firedata3.csv")
-firedata <- firedata %>% filter(BurnBndAc >= 1000)
+#firedata <- firedata %>% filter(BurnBndAc >= 1000)
 firedata$isFireSeason <- as.factor(firedata$isFireSeason)
-firedataWf <- firedata[which(firedata$Incid_Type == "Wildfire" & firedata$BurnBndAc >=1000),]
-firedataRx <- firedata[which(firedata$Incid_Type == "Prescribed Fire" & firedata$BurnBndAc >=1000),]
+firedataWf <- firedata[which(firedata$Incid_Type == "Wildfire"),]
+firedataRx <- firedata[which(firedata$Incid_Type == "Prescribed Fire"),]
 firedataDistWf <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestStnDist_TMAX < 25 & firedata$closestStnDist_TMIN < 25 & firedata$closestStnDist_TMAX < 25 & firedata$Incid_Type == "Wildfire"),]
 firedataDistRx <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestStnDist_TMAX < 25 & firedata$closestStnDist_TMIN < 25 & firedata$closestStnDist_TMAX < 25 & firedata$Incid_Type == "Prescribed Fire"),]
 
@@ -30,6 +31,15 @@ firedataDistRx <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestSt
 #########
 #Section 7: Exploratory data analysis and data visualization
 #########
+
+#View correlations between all the weather variables
+cormat <- cor(firedata %>% select(starts_with("TMAXavg") | starts_with("TMINavg") | starts_with("PRCPavg")), use="complete.obs")
+cormat_melt <- melt(cormat)
+head(cormat_melt)
+
+ggplot(data = cormat_melt, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+ 
+  theme(axis.text.x = element_text(angle = 90))
 
 if(!dir.exists("Output")){
   dir.create("Output")
@@ -42,7 +52,7 @@ hist(log(firedataWf$BurnBndAc), xlab="Log Acres Burned", main="Histogram of Log 
 
 #explore TMIN, TMAX, PRCP and year vs burned area
 ggplot(firedataWf, aes(x=as.Date(IG_DATE), y=log(BurnBndAc), color=Asmnt_Type))+
-  geom_point(alpha=0.25)+
+  geom_point(alpha=0.08)+
   scale_x_date()
 #^Not a very informative plot
 
@@ -60,6 +70,10 @@ ggplot(firedata %>% filter(Incid_Type == "Prescribed Fire"), aes(x=log(BurnBndAc
   ggtitle("Burned Acreage of Prescribed Fires by Year")+
   labs(fill="Year")
 
+if(!dir.exists("Output/byRegion")){
+  dir.create("Output/byRegion")
+}
+
 regionList <- setdiff(unique(firedataDistWf$region), c("Hawaii", "Puerto Rico"))
 for(reg in regionList){
   firedataRegion <- firedataDistWf[which(firedataDistWf$region == reg),]
@@ -71,23 +85,71 @@ for(reg in regionList){
     xlab("Date")+
     ylab("Log Acres Burned")+
     ggtitle(paste0("Area Burned by Region\n", reg))
-  ggsave(paste0("Output/", reg, ".png"), plt)
+  ggsave(paste0("Output/byRegion/", reg, ".png"), plt)
 }
 
 ggplot(firedataDistWf, aes(x=TMAXavg, y=log(BurnBndAc)))+
-  geom_point(alpha=1/6)+
+  geom_point(alpha=0.1)+
   geom_smooth(method="glm")+
   xlab("Temperature Maximum Average in tenths of a degree C")+
   ylab("Log Burned Acreage")+
   ggtitle("Temperature Maximum vs Area Burned")
 #facet_wrap(~subset)
+cor(firedata$TMAXavg, log(firedata$BurnBndAc))
+cor(firedata$TMAXavg.3, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg.2, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg.1, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg0, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg1, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg2, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg3, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMAXavg4, log(firedata$BurnBndAc), use="pairwise.complete.obs")
 
-ggplot(firedataDistWf, aes(x=sqrt(PRCPavg), y=log(BurnBndAc)))+
-  geom_point(alpha=1/4)+
+ggplot(firedataDistWf, aes(x=TMINavg, y=log(BurnBndAc)))+
+  geom_point(alpha=0.1)+
+  geom_smooth(method="glm")+
+  xlab("Temperature Minimum Average in tenths of a degree C")+
+  ylab("Log Burned Acreage")+
+  ggtitle("Temperature Maximum vs Area Burned")
+
+cor(firedata$TMINavg, log(firedata$BurnBndAc))
+cor(firedata$TMINavg.3, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg.2, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg.1, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg0, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg1, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg2, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg3, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$TMINavg4, log(firedata$BurnBndAc), use="pairwise.complete.obs")
+
+ggplot(firedataDistWf, aes(x=(PRCPavg)^(1/3), y=log(BurnBndAc)))+
+  geom_point(alpha=0.1)+
   geom_smooth(method="glm")+
   xlab("Square Root Average Daily Precipitation (cm)")+
   ylab("Log Burned Acreage")+
   ggtitle("Precipitation vs Area Burned")
+
+cor(firedata$PRCPavg^(1/3), log(firedata$BurnBndAc))
+cor(firedata$PRCPavg.3^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg.2^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg.1^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg0^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg1^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg2^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg3^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg4^(1/3), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+
+cor(firedata$PRCPavg^(1/2), log(firedata$BurnBndAc))
+cor(firedata$PRCPavg.3^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg.2^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg.1^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg0^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg1^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg2^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg3^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+cor(firedata$PRCPavg4^(1/2), log(firedata$BurnBndAc), use="pairwise.complete.obs")
+
+#Based on these correlations, we choose to use sqrt(PRCP) for our linear regression model
 
 ggplot(firedataDistWf, aes(x=TMINavg, y=log(BurnBndAc)))+
   geom_point(alpha=1/6)+
@@ -97,49 +159,60 @@ ggplot(firedataDistWf, aes(x=TMINavg, y=log(BurnBndAc)))+
   ggtitle("Temperature Minimum vs Area Burned")
 
 ggplot(firedataDistWf, aes(x=TMAXavg, y=TMINavg))+
-  geom_point(alpha=1/6)+
+  geom_point(alpha=0.12)+
   geom_smooth(method="glm")+
   xlab("Temperature Maximum")+
   ylab("Temperature Minimum")+
-  ggtitle(paste0("Temperature Maximum vs Minimum", reg))
+  ggtitle(paste0("Temperature Maximum vs Minimum"))
+
+cor(firedataDistWf$TMAXavg, firedataDistWf$TMINavg)
 
 #split by region
 if(!dir.exists("Output/TMAX v TMIN")){
   dir.create("Output/TMAX v TMIN")
 }
 
+correlation_data <- data.frame(matrix(nrow=3, ncol=10))
+names(correlation_data) <- regionList
+rownames(correlation_data) <- c("TMAXavg vs TMINavg", "TMAXavg vs PRCPavg", "TMINavg vs PRCPavg")
 for(reg in regionList){
   print(reg)
   firedataRegion <- firedataDistWf[which(firedataDistWf$region == reg),]
-  plt<-ggplot(firedataRegion, aes(x=TMAXavg, y=TMINavg))+
-    geom_point(alpha=1/6)+
-    geom_smooth(method="glm")+
-    xlab("Temperature Maximum")+
-    ylab("Temperature Minimum")+
-    ggtitle(paste0("Temperature Maximum vs Minimum ", reg))
-  ggsave(paste0("Output/TMIN v TMAX/TMINvTMAX", reg, ".png"), plt)
+  #plt<-ggplot(firedataRegion, aes(x=TMAXavg, y=TMINavg))+
+  #  geom_point(alpha=1/6)+
+  #  geom_smooth(method="glm")+
+  #  xlab("Temperature Maximum")+
+  #  ylab("Temperature Minimum")+
+  #  ggtitle(paste0("Temperature Maximum vs Minimum ", reg))
+  #ggsave(paste0("Output/TMIN v TMAX/TMINvTMAX", reg, ".png"), plt)
+  cor_reg <- cor(firedataRegion$TMAXavg, firedataRegion$TMINavg)
+  correlation_data["TMAXavg vs TMINavg", reg] <- cor_reg
+  
+  cor_reg <- cor(firedataRegion$TMAXavg, firedataRegion$PRCPavg)
+  correlation_data["TMAXavg vs PRCPavg", reg] <- cor_reg
+  
+  cor_reg <- cor(firedataRegion$TMINavg, firedataRegion$PRCPavg)
+  correlation_data["TMINavg vs PRCPavg", reg] <- cor_reg
 }
 
-for(reg in regionList){
-  firedataRegion <- firedataDistWf[which(firedataDistWf$region == reg),]
-  print(reg)
-  print(cor(firedataRegion$TMAXavg, firedataRegion$TMINavg))
-}
-#only a somewhat clear positive correlation in the SE and SW
+#Correlations between temperature and precipitation vary widely between regions
 
 #Above plot may be influenced by observations where, due to flagged or NA values, TMAX and TMIN were recorded at separate stations
-#Currently, only one such observation
+#Currently 411 observation
 nrow(firedata[which(firedata$closestStnID_TMAX != firedata$closestStnID_TMIN),])
 
+if(!dir.exists("Output/TMINvTMAXbyRegion_Season")){
+  dir.create("Output/TMINvTMAXbyRegion_Season")
+}
 #Compare tmin vs tmax day of ignition
-ggplot(firedataDistWf[which(!firedataDistWf$region %in% c("Puerto Rico", "Hawaii")),], aes(x=TMAX0, y=TMIN0, color=isFireSeason))+
-  geom_point(alpha=1/6)+
-  xlab("Temperature Maximum")+
-  ylab("Temperature Minimum")+
-  ggtitle("Temperature Maximum vs Minimum")+
-  facet_wrap(~region)
-  #facet_wrap(~subset)
-#Above plots show weird shapes comparing tmax and tmin. Explore this more later.
+for(reg in regionList){
+  plt <- ggplot(firedataDistWf[which(firedataDistWf$region == reg),], aes(x=TMAX0, y=TMIN0, color=isFireSeason))+
+    geom_point(alpha=0.35)+
+    xlab("Temperature Maximum")+
+    ylab("Temperature Minimum")+
+    ggtitle(paste0("Temperature Maximum vs Minimum: ", reg))
+  ggsave(paste0("Output/TMINvTMAXbyRegion_Season/TMAXvsMin_",reg,".png"), plt)
+}
 
 #create maps of fires per year
 #Download NWS state and territory shapefiles

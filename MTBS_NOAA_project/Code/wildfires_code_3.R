@@ -13,7 +13,22 @@ library(data.table)
 library(ggplot2)
 
 
-firedata <- read.csv("Data/firedata2.csv")
+files <- list.files(path="Data/", pattern="firedata2c_[0123456789]+.csv", recursive=FALSE)
+iteration <- 1
+for(file in files){
+  fileval <- gsub("firedata2c_", "", file)
+  fileval <- gsub(".csv", "", fileval)
+  fileval <- as.integer(fileval)
+  if(fileval > iteration){
+    iteration <- fileval
+  }
+}
+firedata <- read.csv(paste0("Data/firedata2b_", iteration, ".csv"), stringsAsFactors = FALSE)
+
+minFlag = 10
+minNA = 15
+firedata <- firedata %>% filter(flagTMAX < minFlag & flagTMIN < minFlag & flagPRCP < minFlag &
+                                  naTMAX < minNA & naTMIN < minNA & naPRCP < minNA)
 
 
 #########
@@ -80,21 +95,50 @@ firedata$region <- "region"
 #NEED TO UPDATE TO INCLUDE 2018 DATA
 
 attach(firedata)
-firedata[which(BurnBndLat > 60),]$state <- "Alaska"
-firedata[which((BurnBndLat == 49.021 & BurnBndLon == -113.601)),]$state <- "Montana"
-firedata[which((BurnBndLat == 49.017 & BurnBndLon == -119.596)),]$state <- "Washington"
-firedata[which((BurnBndLat == 49.009 & BurnBndLon == -96.568) | (BurnBndLat == 49.003 & BurnBndLon == -96.878) | (BurnBndLat == 48.225 & BurnBndLon == -90.782) | (BurnBndLat == 48.156 & BurnBndLon == -90.762)),]$state <- "Minnesota"
-firedata[which(BurnBndLat == 42.501 & BurnBndLon == -71.656),]$state <- "Massachusetts"
-firedata[which((BurnBndLat == 32.609 & BurnBndLon == -116.057) | (BurnBndLat == 32.589 & BurnBndLon == -116.443) | (BurnBndLat == 32.585 & BurnBndLon == -116.514) | (BurnBndLat == 32.579 & BurnBndLon == -116.264)),]$state <- "California"
-firedata[which((BurnBndLat == 31.346 & BurnBndLon == -111.12) | (BurnBndLat == 31.299 & BurnBndLon == -110.357)),]$state <- "Arizona"
-firedata[which((BurnBndLat == 31.331 & BurnBndLon == -108.9) | (BurnBndLat == 31.329 & BurnBndLon == -108.998) | (BurnBndLat == 31.312 & BurnBndLon == -108.834) | (BurnBndLat == 31.318 & BurnBndLon == -108.714)),]$state <- "New Mexico"
-firedata[which(BurnBndLat == 27.012 & BurnBndLon == -97.373),]$state <- "Texas"
-firedata[which((BurnBndLat == 36.549 & BurnBndLon == -75.974) | (BurnBndLat == 34.907 & BurnBndLon == -76.345)),]$state <- "North Carolina"
-if(anyNA(state)){
-  firedata[which(is.na(state) & BurnBndLat < 30.6 & BurnBndLon > -86),]$state <- "Florida" 
+#firedata[which(BurnBndLat > 60),]$state <- "Alaska"
+#firedata[which((BurnBndLat == 49.021 & BurnBndLon == -113.601)),]$state <- "Montana"
+#firedata[which((BurnBndLat == 49.017 & BurnBndLon == -119.596)),]$state <- "Washington"
+#firedata[which((BurnBndLat == 49.009 & BurnBndLon == -96.568) | (BurnBndLat == 49.003 & BurnBndLon == -96.878) | (BurnBndLat == 48.225 & BurnBndLon == -90.782) | (BurnBndLat == 48.156 & BurnBndLon == -90.762)),]$state <- "Minnesota"
+#firedata[which(BurnBndLat == 42.501 & BurnBndLon == -71.656),]$state <- "Massachusetts"
+#firedata[which((BurnBndLat == 32.609 & BurnBndLon == -116.057) | (BurnBndLat == 32.589 & BurnBndLon == -116.443) | (BurnBndLat == 32.585 & BurnBndLon == -116.514) | (BurnBndLat == 32.579 & BurnBndLon == -116.264)),]$state <- "California"
+#firedata[which((BurnBndLat == 31.346 & BurnBndLon == -111.12) | (BurnBndLat == 31.299 & BurnBndLon == -110.357)),]$state <- "Arizona"
+#firedata[which((BurnBndLat == 31.331 & BurnBndLon == -108.9) | (BurnBndLat == 31.329 & BurnBndLon == -108.998) | (BurnBndLat == 31.312 & BurnBndLon == -108.834) | (BurnBndLat == 31.318 & BurnBndLon == -108.714)),]$state <- "New Mexico"
+#firedata[which(BurnBndLat == 27.012 & BurnBndLon == -97.373),]$state <- "Texas"
+#firedata[which((BurnBndLat == 36.549 & BurnBndLon == -75.974) | (BurnBndLat == 34.907 & BurnBndLon == -76.345)),]$state <- "North Carolina"
+
+#manually identify states of fires which are not yet identified
+#map out one by one
+if(!dir.exists("Output/stateFinder")){
+  dir.create("Output/stateFinder")
 }
+#firedataStateNA <- firedata[which(is.na(state)),]
+#for(i in 1:nrow(firedataStateNA)){
+#  firedata_row <- firedataStateNA[i,]
+#  pointLon <- firedata_row$BurnBndLon[1]
+#  pointLat <- firedata_row$BurnBndLat[1]
+#  plot <- ggplot(data=states_and_territories)+
+#    geom_sf()+
+#    geom_point(data=firedata_row, mapping = aes(x=BurnBndLon, y=BurnBndLat), color="red",alpha=0.8)+
+#    coord_sf(xlim=c(pointLon - 8,pointLon + 8), ylim=c(pointLat - 6, pointLat + 6))+
+#    #scale_size_continuous(range=c(2,9))+
+#    theme_void()
+#  ggsave(paste0("Output/stateFinder/map", i, ".png"), plot, width=15)
+#}
+
+firedataStateNA$state <- c("Washington", "Minnesota", "California", "New Mexico", "Florida", "New Mexico", "Florida", "Florida",
+                           "Minnesota", "Montana", "California", "Alaska", "Alaska", "Florida", "Florida", "Alaska",
+                           "California", "Florida", "Minnesota", "North Carolina", "Florida", "Florida", "Florida", "Florida", 
+                           "Florida", "Florida", "New Mexico", "Arizona", "California", "Minnesota", "North Carolina", "Alaska",
+                           "Florida", "Arizona", "Texas", "New Mexico")
 detach(firedata)
 
+#make sure none of the states were spelled wrong
+print(sort(unique(union(firedata$state, firedataStateNA$state))))
+
+for(i in 1:nrow(firedataStateNA)){
+  firedata[which(firedata$Event_ID == firedataStateNA$Event_ID[i]),] <- firedataStateNA[i,]
+  print(paste0("Replaced: ", firedataStateNA$Event_ID[i], " state with ", firedataStateNA$state[i]))
+}
 #Assign region values based on state
 firedata[which(firedata$state %in% c("California", "Nevada")),]$region <- "West"
 firedata[which(firedata$state %in% c("Utah", "Colorado", "Arizona", "New Mexico")),]$region <- "Southwest"
@@ -214,4 +258,65 @@ firedata[which(firedata$IG_YEAR >=2004 & firedata$IG_YEAR <= 2008),]$year_group 
 firedata[which(firedata$IG_YEAR >=2009 & firedata$IG_YEAR <= 2013),]$year_group <- "2009-2013"
 firedata[which(firedata$IG_YEAR >=2014 & firedata$IG_YEAR <= 2018),]$year_group <- "2014-2018"
 
+
+firedata$TMAXavg <- rowMeans(firedata %>% select(starts_with("TMAX")), na.rm=TRUE)
+firedata$prevTMAXavg <- rowMeans(firedata[,c("TMAX.3", "TMAX.2", "TMAX.1", "TMAX0", 
+                                              "TMAX1", "TMAX2", "TMAX3")], na.rm=TRUE)
+firedata$TMAXavg.3 <- rowMeans(firedata[,c("TMAX.21", "TMAX.20", "TMAX.19", "TMAX.18", 
+                                           "TMAX.17", "TMAX.16", "TMAX.15")], na.rm=TRUE)
+firedata$TMAXavg.2 <- rowMeans(firedata[,c("TMAX.14", "TMAX.13", "TMAX.12", "TMAX.11", 
+                                           "TMAX.10", "TMAX.9", "TMAX.8")], na.rm=TRUE)
+firedata$TMAXavg.1 <- rowMeans(firedata[,c("TMAX.7", "TMAX.6", "TMAX.5", "TMAX.4", 
+                                           "TMAX.3", "TMAX.2", "TMAX.1")], na.rm=TRUE)
+firedata$TMAXavg0 <- rowMeans(firedata[,c("TMAX1", "TMAX2", "TMAX3", "TMAX4", 
+                                           "TMAX5", "TMAX6", "TMAX7")], na.rm=TRUE)
+firedata$TMAXavg1 <- rowMeans(firedata[,c("TMAX8", "TMAX9", "TMAX10", "TMAX11", 
+                                          "TMAX12", "TMAX13", "TMAX14")], na.rm=TRUE)
+firedata$TMAXavg2 <- rowMeans(firedata[,c("TMAX15", "TMAX16", "TMAX17", "TMAX18", 
+                                          "TMAX19", "TMAX20", "TMAX21")], na.rm=TRUE)
+firedata$TMAXavg3 <- rowMeans(firedata[,c("TMAX22", "TMAX23", "TMAX24", "TMAX25", 
+                                          "TMAX26", "TMAX27", "TMAX28")], na.rm=TRUE)
+firedata$TMAXavg4 <- rowMeans(firedata[,c("TMAX29", "TMAX30", "TMAX31", "TMAX32", 
+                                          "TMAX33", "TMAX34", "TMAX35")], na.rm=TRUE)
+
+firedata$TMINavg <- rowMeans(firedata %>% select(starts_with("TMIN")), na.rm=TRUE)
+firedata$prevTMINavg <- rowMeans(firedata[,c("TMIN.3", "TMIN.2", "TMIN.1", "TMIN0", 
+                                              "TMIN1", "TMIN2", "TMIN3")], na.rm=TRUE)
+firedata$TMINavg.3 <- rowMeans(firedata[,c("TMIN.21", "TMIN.20", "TMIN.19", "TMIN.18", 
+                                           "TMIN.17", "TMIN.16", "TMIN.15")], na.rm=TRUE)
+firedata$TMINavg.2 <- rowMeans(firedata[,c("TMIN.14", "TMIN.13", "TMIN.12", "TMIN.11", 
+                                           "TMIN.10", "TMIN.9", "TMIN.8")], na.rm=TRUE)
+firedata$TMINavg.1 <- rowMeans(firedata[,c("TMIN.7", "TMIN.6", "TMIN.5", "TMIN.4", 
+                                           "TMIN.3", "TMIN.2", "TMIN.1")], na.rm=TRUE)
+firedata$TMINavg0 <- rowMeans(firedata[,c("TMIN1", "TMIN2", "TMIN3", "TMIN4", 
+                                          "TMIN5", "TMIN6", "TMIN7")], na.rm=TRUE)
+firedata$TMINavg1 <- rowMeans(firedata[,c("TMIN8", "TMIN9", "TMIN10", "TMIN11", 
+                                          "TMIN12", "TMIN13", "TMIN14")], na.rm=TRUE)
+firedata$TMINavg2 <- rowMeans(firedata[,c("TMIN15", "TMIN16", "TMIN17", "TMIN18", 
+                                          "TMIN19", "TMIN20", "TMIN21")], na.rm=TRUE)
+firedata$TMINavg3 <- rowMeans(firedata[,c("TMIN22", "TMIN23", "TMIN24", "TMIN25", 
+                                          "TMIN26", "TMIN27", "TMIN28")], na.rm=TRUE)
+firedata$TMINavg4 <- rowMeans(firedata[,c("TMIN29", "TMIN30", "TMIN31", "TMIN32", 
+                                          "TMIN33", "TMIN34", "TMIN35")], na.rm=TRUE)
+firedata$PRCPavg <- rowMeans(firedata %>% select(starts_with("PRCP")), na.rm=TRUE)
+firedata$prevPRCPavg <- rowMeans(firedata[,c("PRCP.3", "PRCP.2", "PRCP.1", "PRCP0", 
+                                              "PRCP1", "PRCP2", "PRCP3")], na.rm=TRUE)
+firedata$PRCPavg.3 <- rowMeans(firedata[,c("PRCP.21", "PRCP.20", "PRCP.19", "PRCP.18", 
+                                           "PRCP.17", "PRCP.16", "PRCP.15")], na.rm=TRUE)
+firedata$PRCPavg.2 <- rowMeans(firedata[,c("PRCP.14", "PRCP.13", "PRCP.12", "PRCP.11", 
+                                           "PRCP.10", "PRCP.9", "PRCP.8")], na.rm=TRUE)
+firedata$PRCPavg.1 <- rowMeans(firedata[,c("PRCP.7", "PRCP.6", "PRCP.5", "PRCP.4", 
+                                           "PRCP.3", "PRCP.2", "PRCP.1")], na.rm=TRUE)
+firedata$PRCPavg0 <- rowMeans(firedata[,c("PRCP1", "PRCP2", "PRCP3", "PRCP4", 
+                                          "PRCP5", "PRCP6", "PRCP7")], na.rm=TRUE)
+firedata$PRCPavg1 <- rowMeans(firedata[,c("PRCP8", "PRCP9", "PRCP10", "PRCP11", 
+                                          "PRCP12", "PRCP13", "PRCP14")], na.rm=TRUE)
+firedata$PRCPavg2 <- rowMeans(firedata[,c("PRCP15", "PRCP16", "PRCP17", "PRCP18", 
+                                          "PRCP19", "PRCP20", "PRCP21")], na.rm=TRUE)
+firedata$PRCPavg3 <- rowMeans(firedata[,c("PRCP22", "PRCP23", "PRCP24", "PRCP25", 
+                                          "PRCP26", "PRCP27", "PRCP28")], na.rm=TRUE)
+firedata$PRCPavg4 <- rowMeans(firedata[,c("PRCP29", "PRCP30", "PRCP31", "PRCP32", 
+                                          "PRCP33", "PRCP34", "PRCP35")], na.rm=TRUE)
+
 write.csv(firedata, "Data/firedata3.csv")
+

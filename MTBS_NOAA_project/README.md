@@ -20,21 +20,29 @@ wildfires_code_1
       Saves firedata1.csv which contains original mtbs firedata and closest fire stations for TMAX, TMIN, and PRCP variables
       Saves stationsUS.csv dataframe which contains location, ID, and start/stop years of variable observations for stations in US only
 
+Scripts 2a, 2b and 2c are to be run iteratively to identify stations with flagged or missing data, identify next nearest stations, and extract updated data. For each row in the dataframe, the iterations continue until either weather data is downloaded with minimal missing or flagged data, OR until the next nearest station is 250 km or more away from the fire, at which point the data is entirely irrelevant. Due to the high computational cost of these operations, scripts 2a and 2c are run on the UCSC Hummingbird computing cluster. Since new weather data files cannot be downloaded directly on the cluster, script 2b downloads them locally, and the user must upload the files to the cluster.
 
 wildfires_code_2a
-  To be run on local computer
-      Downloads NOAA weather data files for each station identified in section 2 of wildfires_code_1
-      In previous runs, some of the data files have been corrupted. Created code to identify and redownload corrupted files.
-        This should be fixed, but I kept the code to replace corrupted files
+  To be run on remote computer. The first time this script is run, the data file firedata1.csv is loaded and then written as firedata2a_1.csv.
+  After 2b and 2c have been run at least once, script 2a reads the datafile firedata2c_i.csv and identifies the next nearest stations for fires that have yet to be updated. Saves firedata to firedata2a_i.csv where i is the iteration.
+
 wildfires_code_2b
-  To be run on remote computer
-      Extracts weather data from NOAA data files downloaded in section 2a and incorporates weather data in firedata dataframe
-      Includes weather data for each variable from 21 days before the event until 35 days after
-        TMAX.3 represents TMAX value 3 days before the fire, TMAX3 3 days after
+  To be run on local computer
+      Downloads all weather files that have not yet been downloaded. User must then upload data to cluster as specified below. Saves firedata to firedata2b_i.csv where i is the iteration.
+
 wildfires_code_2c
-  In progress
-      Identifies fires with too much missing or flagged weather data
-      For flagged fires, identifies next nearest weather stations and pulls weather data again
+  Extracts weather data for each fire that requires weather data updates. After extraction, identifies which fires have associated weather data that still has too much missing or flagged data. Saves firedata to firedata2c_i.csv where i is the iteration. Prints out the number of rows that still need updating. If any are nonzero, the user knows to run another iteration.
+
+These 3 scripts are to be run iteratively as follows. With firedata up until 2018, a total of 9 iterations were required.
+
+-Run 2a remotely
+-Transfer firedata2a_i.csv to local
+-Run 2b locally
+-Transfer firedata2b_i.csv to remote
+-Transfer all noaadata to remote
+  Recommended approach to only transfer new data files:
+  rsync -av --ignore-existing ./*.csv user@hb.ucsc.edu:~/Data/noaa/noaadata
+-Run 2c remotely
 
 wildfires_code_3
   Section 1:
@@ -49,5 +57,4 @@ wildfires_code_4
     Informative plots saved and pushed to github repositories. Uninformative plot code left, but plots not included in repo.
 
 wildfires_code_5
-    Perform robust multiple linear regression
-    Independent variables are: year, TMAXavg, TMINavg, PRCPavg. Dependent variable is acres burned.
+    Perform robust multiple linear regression to model acreage burned based on weather variables, year, month, and region
