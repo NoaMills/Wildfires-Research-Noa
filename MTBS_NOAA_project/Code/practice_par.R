@@ -1,3 +1,5 @@
+#Code to practice parallel computing
+
 library(foreach)
 library(doParallel)
 library(doMC)
