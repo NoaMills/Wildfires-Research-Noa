@@ -92,8 +92,6 @@ firedata$region <- "region"
 #36 lat/long coordinates are either just out of the boundary of the US, on a body of water, or otherwise not assigned their given state
 #These observations were given state values individually
 
-#NEED TO UPDATE TO INCLUDE 2018 DATA
-
 attach(firedata)
 #firedata[which(BurnBndLat > 60),]$state <- "Alaska"
 #firedata[which((BurnBndLat == 49.021 & BurnBndLon == -113.601)),]$state <- "Montana"
