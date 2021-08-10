@@ -20,7 +20,7 @@ wildfires_code_1
       Saves firedata1.csv which contains original mtbs firedata and closest fire stations for TMAX, TMIN, and PRCP variables
       Saves stationsUS.csv dataframe which contains location, ID, and start/stop years of variable observations for stations in US only
 
-Scripts 2a, 2b and 2c are to be run iteratively to identify stations with flagged or missing data, identify next nearest stations, and extract updated data. For each row in the dataframe, the iterations continue until either weather data is downloaded with minimal missing or flagged data, OR until the next nearest station is 250 km or more away from the fire, at which point the data is entirely irrelevant. Due to the high computational cost of these operations, scripts 2a and 2c are run on the UCSC Hummingbird computing cluster. Since new weather data files cannot be downloaded directly on the cluster, script 2b downloads them locally, and the user must upload the files to the cluster.
+Scripts 2a, 2b and 2c are to be run iteratively to identify stations with flagged or missing data, identify next nearest stations, and extract updated data. For each row in the dataframe, the iterations continue until either weather data is downloaded with minimal missing or flagged data, OR until the next nearest station is 250 km or more away from the fire, at which point the data is deemed irrelevant. Due to the high computational cost of these operations, scripts 2a and 2c are run on the UCSC Hummingbird computing cluster. Since new weather data files cannot be downloaded directly on the cluster, script 2b downloads them locally, and the user must upload the files to the cluster.
 
 wildfires_code_2a
   To be run on remote computer. The first time this script is run, the data file firedata1.csv is loaded and then written as firedata2a_1.csv.
@@ -58,3 +58,17 @@ wildfires_code_4
 
 wildfires_code_5
     Perform robust multiple linear regression to model acreage burned based on weather variables, year, month, and region
+
+wildfires_code_6
+    Downloads and incorporates Palmer Drought Severity Index (PSDI) from NOAA into the firedata dataframe. This data is built on precipitation and temperature data, but
+    is interpolated across space as opposed to the station-based weather data.
+
+wildfires_code_7
+    Incorporates data on Time Since Last Burn (TSLB). Creates two additional data attributes, TSLB10 and TSLB25 which specify the number of days
+    since there was a fire within 10 km, and within 25 km respectively. Fires with no recorded previous fire within 10 or 25 km are given the value NA.
+    Categorizes TSLB data into 8 bins, and creates boxplots of log acreage burned by bin.
+    Code intended to be run remotely on a computing cluster.
+
+wildfires_code_8
+    Performs Multiple Linear Regression with various combinations of predictors (station based data, PSDI data, TSLB10 and TSLB25 continuous and binned)
+    to compare which has the greatest adjusted R-squared value.

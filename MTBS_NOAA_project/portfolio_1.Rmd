@@ -1,30 +1,49 @@
+# Wildfire Trends in the US: Section 1
+## By Noa Mills
+
+**This section of code downloads the Monitoring Trends in Burn Severity (MTBS) fire data, the National Oceanic and Atmospheric Administration (NOAA) weather station data, and identifies the nearest station to each fire that records each of the following key weather variables for analysis: Temperature Maximum (TMAX), Temperature Minimum (TMIN), and Precipitation (PRCP).**
+
+First, install and load the necessary packages and set a time variable to track how long this script takes to run.
+
+```{r echo=T, results='hide', error=FALSE, message=FALSE, warning=FALSE}
+ptm <- proc.time()
+
+if(!require(rio)){install.packages("rio")}
 library(rio)
+if(!require(dplyr)){install.packages("dplyr")}
 library(dplyr)
+if(!require(tidyr)){install.packages("tidyr")}
 library(tidyr)
+if(!require(rgdal)){install.packages("rgdal")}
 library(rgdal)
+if(!require(base)){install.packages("base")}
 library(base)
+if(!require(profvis)){install.packages("profvis")}
 library(profvis)
+if(!require(rnoaa)){install.packages("rnoaa")}
 library(rnoaa)
+if(!require(lubridate)){install.packages("lubridate")}
 library(lubridate)
+if(!require(sf)){install.packages("sf")}
 library(sf)
+if(!require(spData)){install.packages("spData")}
 library(spData)
+if(!require(tidyverse)){install.packages("tidyverse")}
 library(tidyverse)
+if(!require(data.table)){install.packages("data.table")}
 library(data.table)
+if(!require(ggplot2)){install.packages("ggplot2")}
 library(ggplot2)
+if(!require(foreach)){install.packages("foreach")}
 library(foreach)
+if(!require(doParallel)){install.packages("doParallel")}
+library(doParallel)
+if(!require(doMC)){install.packages("doMC")}
+library(doMC)
+```
 
-
-
-#########
-#Section 1: Download MTBS fire occurence data, download NOAA stations and inventory data
-#firedata dataframe contains data on when and wear fires occured in the US, and how many acres they burned
-#stations dataframe contains data on where NOAA weather stations are
-#inventory dataframe contains data on what weather variables each station observes,
-#   and the timeframes of observation for each variable
-#########
-
-#code do download mtbs data modified from https://github.com/mbjoseph/mtbs-data/blob/master/get-mtbs-data.R
-#make data directory
+Create directories to store data, and download the MTBS weather data. The file mtbs.csv contains data on fires in the contiguous US, Alaska, Hawaii, and Puerto Rico, including fires larger than 500 acres to the east of the Mississippi, and fires 1000 acres or larger to the west of the Mississippi. The data also includes some smaller fires. Data attributes include fire ID, date of ignition, longitude, latitude, and area burned.
+```{r}
 if(!dir.exists("Data")){
   dir.create("Data")
 }
@@ -49,17 +68,23 @@ if(!file.exists('Data/mtbs/mtbs_data.csv')){
   file.remove('Data/mtbs/mtbs_FODpoints_DD.shx')
   file.remove('Data/mtbs/mtbs_FODpoints_DD.dbf')
 }
+```
 
-#create firedata dataframe
+Read the mtbs.csv data into a dataframe called 'firedata', convert the ignition date from a factor to a date, and extract year, month, and date values.
+```{r}
 firedata <- read.csv('Data/mtbs/mtbs_data.csv')
 
-#convert ignition date variable from factor to date and store values numerically
 firedata$IG_DATE <- as.Date(firedata$Ig_Date, format = '%Y-%m-%e')
 firedata$IG_YEAR <- as.numeric(format(firedata$IG_DATE, '%Y'))
 firedata$IG_MONTH <- as.numeric(format(firedata$IG_DATE, '%m'))
 firedata$IG_DAY <- as.numeric(format(firedata$IG_DATE, '%d'))
+```
 
-#create noaa data directories
+Download two data files from NOAA: inventory.txt and stations.txt. Code to read the .txt files into a dataframe is modified from [this documentation](http://spatialreasoning.com/wp/20170307_1244_r-reading-filtering-weather-data-from-the-global-historical-climatology-network-ghcn). The stations.txt file contains one row per station, and lists the ID, long and lat, state, and elevation for each station. The inventory.txt file contains a variable number of rows per station. Each row specifies a station ID, long and lat, a specific weather variable that was recorded at that station (such as TMAX, TMIN or PRCP), and the beginning and end dates of observation for that variable at that station.
+
+*Potential next step: Incorporate elevation data into dataframe, and incorporate in models.*
+
+```{r}
 if(!dir.exists("Data/noaa")){
   dir.create("Data/noaa")
 }
@@ -93,17 +118,55 @@ inv <- read.fortran("Data/noaa/inventory.txt",
                     comment.char="")
 invhdrs <- c("ID", "LAT", "LON", "ELEM" , "FIRST", "LAST")
 names(inv) <- invhdrs
+```
 
-#only include inventory rows for desired observations
+In this analysis, we only include three weather variables: TMAX, TMIN and PRCP. Here, we filter the inventory dataframe to only include rows that record the start and stop dates of one of these three weather variables.
+
+```{r}
 inv$ELEM <- as.character(inv$ELEM)
 inv <- inv[which(inv$ELEM == "TMAX" | inv$ELEM == "TMIN" | inv$ELEM == "PRCP"),]
+```
 
-#create subset dataframe containing only stations in the US
+Next, we filter the stations dataframe to only include stations which are in the US or Puerto Rico, and save this data into the dataframe stationsUS
+
+```{r}
 statelist <- c("AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "PR", "RI", "SC", "SD", "TN", "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY")
 stationsUS<-stations[which(stations$ST %in% statelist),]
+```
 
-#include station start and stop dates of variable records
-#further updated below
+Remove from the inventory dataframe any stations that are not in the stationsUS dataframe.
+
+```{r}
+inv$inStnUS <- inv$ID %in% stationsUS$ID
+inv <- inv[which(inv$inStnUS),]
+```
+
+Remove from the inventory dataframe any stations that have never recorded weather variables from one of the three key variables used in this portfolio (TMAX, TMIN, PRCP).
+
+*Potential improvement: make this code run faster by either using an apply function, or parallelizing the loop.*
+
+```{r}
+for (stn in 1:nrow(stationsUS)){
+  if(!"TMAX" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM |
+     !"TMIN" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM |
+     !"PRCP" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM){
+    inv <- inv[which(inv$ID != stationsUS$ID[stn]),]
+  }
+}
+```
+
+Remove from the stations dataframe any stations that are not in the inventory dataframe, and thus do not record any of the key variables.
+
+```{r}
+stationsUS$inInv <- stationsUS$ID %in% inv$ID
+stationsUS <- stationsUS[which(stationsUS$inInv),]
+```
+
+Add attributes to the stationsUS dataframe to indicate the start and stop dates of variable observations.
+
+*Potential improvement: make this code, and the code in the next block, run faster by either using an apply function or parallelizing the loop.*
+
+```{r}
 stationsUS$startTMAX <- 0
 stationsUS$startTMIN <- 0
 stationsUS$startPRCP <- 0
@@ -111,31 +174,7 @@ stationsUS$endTMAX <- 0
 stationsUS$endTMIN <- 0
 stationsUS$endPRCP <- 0
 
-#remove from inv the stations that are not in stationsUS
-inv$inStnUS <- inv$ID %in% stationsUS$ID
-inv <- inv[which(inv$inStnUS),]
-
-#remove from inv any stations that do not ever take observations for TMAX, TMIN and PRCP
 for (stn in 1:nrow(stationsUS)){
-  #print(stn)
-  if(!"TMAX" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM |
-     !"TMIN" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM |
-     !"PRCP" %in% inv[which(inv$ID == stationsUS$ID[stn]),]$ELEM){
-    inv <- inv[which(inv$ID != stationsUS$ID[stn]),]
-  }
-}
-
-#remove from stationsUS the stations that are not in inv
-stationsUS$inInv <- stationsUS$ID %in% inv$ID
-stationsUS <- stationsUS[which(stationsUS$inInv),]
-
-#include start and stop times of variable obs
-#current time:  720.69   46.93  771.09
-ptm <- proc.time()
-for (stn in 1:nrow(stationsUS)){
-  if (stn%%100 == 0){
-    print(stn)
-  }
   stationsUS$startTMAX[stn] <- inv[which(inv$ID == stationsUS[stn,]$ID & inv$ELEM == "TMAX"),]$FIRST[1]
   stationsUS$endTMAX[stn] <- inv[which(inv$ID == stationsUS[stn,]$ID & inv$ELEM == "TMAX"),]$LAST[1]
   stationsUS$startTMIN[stn] <- inv[which(inv$ID == stationsUS[stn,]$ID & inv$ELEM == "TMIN"),]$FIRST[1]
@@ -143,51 +182,49 @@ for (stn in 1:nrow(stationsUS)){
   stationsUS$startPRCP[stn] <- inv[which(inv$ID == stationsUS[stn,]$ID & inv$ELEM == "PRCP"),]$FIRST[1]
   stationsUS$endPRCP[stn] <- inv[which(inv$ID == stationsUS[stn,]$ID & inv$ELEM == "PRCP"),]$LAST[1]
 }
-proc.time()-ptm
+```
 
-#Add year each station was decomissioned from inventory to stationsUS dataframe
-#current time elapsed: 219.14
-ptm <- proc.time()
+Then, add an attribute to the stationsUS dataframe indicating the first and last dates of observation.
+```{r}
 stationsUS$LAST <- 0
 for(stn in 1:nrow(stationsUS)){
   stationsUS[stn,]$LAST <- inv[which(inv$ID == stationsUS[stn,]$ID),][1,]$LAST
-  #print(paste0(stn, " ", stationsUS[stn,]$LAST))
 }
-proc.time()-ptm
+
 stationsUS$FIRST <- 0
 for(stn in 1:nrow(stationsUS)){
   stationsUS[stn,]$FIRST <- inv[which(inv$ID == stationsUS[stn,]$ID),][1,]$FIRST
 }
+```
 
-#remove stations from stationsUS that were decomissioned before 1984
-ptm <- proc.time()
+Remove from the stationsUS dataframe all stations whose attribute 'LAST' was before 1984, indicating that the given station was decomissioned before the timeframe of the MTBS wildfire data.
+
+Save the stationsUS dataframe as a csv.
+
+```{r}
 stationsUS$decom <- FALSE
 for(i in 1:nrow(inv)){
   if(inv[i,]$LAST < 1984){
     stationsUS[which(stationsUS$ID == inv[i,]$ID),]$decom = TRUE
-    #print(i)
   }
 }
 stationsUS <- stationsUS[which(stationsUS$decom == FALSE),]
-proc.time() - ptm
-
-#save stations dataframe
 write.csv(stationsUS, "Data/noaa/stationsUS.csv")
-stationsUS <- read.csv("Data/noaa/stationsUS.csv")
+```
 
-firedata <- firedata[,which(!names(firedata) %in% c("X.1", "X", "irwinID", "Incid_Name", "Map_ID", "Map_Prog", "Pre_ID", "Post_ID", "Perim_ID", "dNBR_offst", "dNBR_stdDv", "NoData_T", "IncGreen_T", "Low_T", "Mod_T", "High_T", "ORIG_FID"))]
+Split the firedata by fire type. For the main analysis here, we only observe fires that are Wildfires, Wildland Use Fires, and Prescribed Burns. All other or unknown fires are stored into firedataOther.csv.
 
-#save fire data
+```{r}
 otherFiredata <- firedata[which(!firedata$Incid_Type %in% c("Prescribed Fire", "Wildfire", "Wildland Fire Use")),]
 #remove from firedata all fires that are not wildfires
 firedata <- firedata[which(firedata$Incid_Type %in% c("Wildfire", "Prescribed Fire", "Wildland Fire Use")),]
 #write.csv(firedata, "Data/mtbs/firedata1.csv")
 write.csv(otherFiredata, "Data/mtbs/otherFiredata.csv")
+```
 
-##########
-#Section 2: For each wildfire, identify the closest weather station
-##########
+Now, we find the nearest weather stations to each fire and incorporate it in the firedata dataframe. Since not all stations observe all three of the key weather variables over the same time periods, we identify the nearest stations for TMAX, TMIN and PRCP separately. First, we create dummy variables to represent the long and lat of the nearest station, and the distance of the station to the given fire.
 
+```{r}
 #add closest station fields to mtbs firedata
 #fields initiated as a dummy station located outside the US
 firedata$closestStnDist_TMAX <- 10000
@@ -202,9 +239,11 @@ firedata$closestStnDist_PRCP <- 10000
 firedata$closestStnID_PRCP <- "dummy station"
 firedata$closestStnLong_PRCP <- 90
 firedata$closestStnLat_PRCP <- -30
+```
 
-#define function to calculate distance between two lat long points in kilometers
-#code from https://www.google.com/url?q=https://conservationecology.wordpress.com/2013/06/30/distance-between-two-points-in-r/&sa=D&ust=1590514403133000&usg=AFQjCNFQnMg9-YSmAMVK-nLN2eHnJSEQTQ
+This function approximates the distance in kilometers between to long/lat points, and was borrowed from [this source](https://www.google.com/url?q=https://conservationecology.wordpress.com/2013/06/30/distance-between-two-points-in-r/&sa=D&ust=1590514403133000&usg=AFQjCNFQnMg9-YSmAMVK-nLN2eHnJSEQTQ)
+
+```{r}
 earth.dist <- function (long1, lat1, long2, lat2){
   rad <- pi/180
   a1 <- lat1 * rad
@@ -220,26 +259,25 @@ earth.dist <- function (long1, lat1, long2, lat2){
   d <- round(d, 5)
   return(d)
 }
+```
 
-#identify closest stations for wildfire data
+Now, we identify the nearest station for each fire, and for each variable. The initial 'dummy' long/lat values for closest stations are far away from the US. For each fire, we iterate through the entire list of stations. For each station, if the distance from that station to the fire is less than the distance of the currently recorded closest station, then we update the closest station. This code is parallelized with the foreach package, and would run faster on a compute cluster. The firedata dataframe is saved as Data/firedata1.csv.
+  
+
+```{r}
 registerDoParallel()
-ptm <- proc.time()
 firedataOut <- foreach (row=1:nrow(firedata), .combine = rbind) %dopar% {
-  if (row %% 50 == 0) {print(paste0("Row: ",row))}
   newRow <- firedata[row,]
   for (stn in 1:nrow(stationsUS)){
     #find closest station with TMAX observations during time period
-
     prevDist <- newRow$closestStnDist_TMAX[1]
     newDist <- earth.dist(newRow$BurnBndLon[1], newRow$BurnBndLat[1], stationsUS$LON[stn], stationsUS$LAT[stn])
     if (newRow$IG_YEAR[1] <= stationsUS$endTMAX[stn] & newRow$IG_YEAR[1] >= stationsUS$startTMAX[stn] &
         newDist < prevDist){
-      #print(paste0("Updating TMAX, stn: ", stationsUS$ID[stn], " row: ", row))
       newRow$closestStnDist_TMAX[1] <- newDist
       newRow$closestStnID_TMAX[1] <- toString(stationsUS$ID[stn])
       newRow$closestStnLong_TMAX[1] <-  stationsUS$LON[stn]
       newRow$closestStnLat_TMAX[1] <-  stationsUS$LAT[stn]
-      #print(paste0("row: ", row, " ID: ", newRow$closestStnID_TMAX[1], " TMAX"))
     }
     
     #TMIN
@@ -247,32 +285,30 @@ firedataOut <- foreach (row=1:nrow(firedata), .combine = rbind) %dopar% {
     newDist <- earth.dist(newRow$BurnBndLon[1], newRow$BurnBndLat[1], stationsUS$LON[stn], stationsUS$LAT[stn])
     if (newRow$IG_YEAR[1] <= stationsUS$endTMIN[stn] & newRow$IG_YEAR[1] >= stationsUS$startTMIN[stn] &
         newDist < prevDist){
-      #print(paste0("Updating TMIN, stn: ", stationsUS$ID[stn], " row: ", row))
       newRow$closestStnDist_TMIN[1] <- newDist
       newRow$closestStnID_TMIN[1] <- toString(stationsUS$ID[stn])
       newRow$closestStnLong_TMIN[1] <-  stationsUS$LON[stn]
       newRow$closestStnLat_TMIN[1] <-  stationsUS$LAT[stn]
-      #print(paste0("row: ", row, " ID: ", newRow$closestStnID_TMAX[1], " TMIN"))
     }
     
     #PRCP
-    
     prevDist <- newRow$closestStnDist_PRCP[1]
     newDist <- earth.dist(newRow$BurnBndLon[1], newRow$BurnBndLat[1], stationsUS$LON[stn], stationsUS$LAT[stn])
     if (newRow$IG_YEAR[1] <= stationsUS$endPRCP[stn] & newRow$IG_YEAR[1] >= stationsUS$startPRCP[stn] &
         newDist < prevDist){
-      #print(paste0("Updating PRCP, stn: ", stationsUS$ID[stn], " row: ", row))
       newRow$closestStnDist_PRCP[1] <- newDist
       newRow$closestStnID_PRCP[1] <- toString(stationsUS$ID[stn])
       newRow$closestStnLong_PRCP[1] <-  stationsUS$LON[stn]
       newRow$closestStnLat_PRCP[1] <-  stationsUS$LAT[stn]
-      #print(paste0("row: ", row, " ID: ", newRow$closestStnID_TMAX[1], " PRCP"))
     }
   }
   newRow
 }
-proc.time()-ptm
+
 
 firedata <- firedataOut
 
 write.csv(firedata, "Data/firedata1.csv")
+totalTime <- proc.time() - ptm
+print(paste0("Total time: ", round(totalTime[3]/60, digits=5), " minutes"))
+```

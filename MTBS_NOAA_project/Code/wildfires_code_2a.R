@@ -37,7 +37,17 @@ earth.dist <- function (long1, lat1, long2, lat2){
   return(d)
 }
 iteration <- 0
-if(file.exists("Data/firedata2c_1.csv")){
+if(!file.exists("Data/firedata2c_1.csv")){
+  firedata <- read.csv("Data/firedata1.csv")
+  firedata$UpdateTMAX <- TRUE
+  firedata$UpdateTMIN <- TRUE
+  firedata$UpdatePRCP <- TRUE
+  firedata$minDistTMAX <- 0
+  firedata$minDistTMIN <- 0
+  firedata$minDistPRCP <- 0
+  write.csv(firedata, "Data/firedata2a_1.csv")
+  
+}else{
   files <- list.files(path="Data/", pattern="firedata2c_[0123456789]+.csv", recursive=FALSE, no.. = TRUE)
   for(file in files){
     fileval <- gsub("firedata2c_", "", file)
@@ -137,9 +147,6 @@ if(file.exists("Data/firedata2c_1.csv")){
   proc.time()-ptm
   #Time local, 500 rows: 56.71, 26.41
   write.csv(firedataOut, paste0("Data/firedata2a_", iteration + 1, ".csv"))
-}else{
-  firedata <- read.csv("Data/firedata1.csv")
-  write.csv(firedata, "Data/firedata2a_1.csv")
 }
 
 print(paste0("Done with 2a, iteration: ", iteration + 1))
