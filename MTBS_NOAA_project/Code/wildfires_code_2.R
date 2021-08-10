@@ -12,9 +12,9 @@ library(tidyverse)
 library(data.table)
 library(ggplot2)
 
-#This version (superseded by versions a and b) is to be run locally, and only
+#This version (superseded by versions a, b, and c) is to be run locally, and only
 #extracts weather data 3 days before until 3 days after each fire
-#Updated versions (2a and 2b sequentially) extract data 21 days before until
+#Updated versions extract data 21 days before until
 #35 days after each fire
 
 

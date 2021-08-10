@@ -20,6 +20,8 @@ wildfires_code_1
       Saves firedata1.csv which contains original mtbs firedata and closest fire stations for TMAX, TMIN, and PRCP variables
       Saves stationsUS.csv dataframe which contains location, ID, and start/stop years of variable observations for stations in US only
 
+Script 2 is superseded by scripts 2a, 2b and 2c, but was left for reference. This version extracts weather data from 3 days before ignition until 3 days after ignition. Scripts 2a, 2b and 2c extract data from 21 days before ignition to 35 days after. This provides a more thorough analysis, but is much more computationally expensive, and are intended to be run on a computing cluster. If you do not have access to a computing cluster, then you can run script 2 locally, though it will take a while and won't provide as much data. Note that the following code scripts assume you have run scripts 2a, 2b and 2c.
+
 Scripts 2a, 2b and 2c are to be run iteratively to identify stations with flagged or missing data, identify next nearest stations, and extract updated data. For each row in the dataframe, the iterations continue until either weather data is downloaded with minimal missing or flagged data, OR until the next nearest station is 250 km or more away from the fire, at which point the data is deemed irrelevant. Due to the high computational cost of these operations, scripts 2a and 2c are run on the UCSC Hummingbird computing cluster. Since new weather data files cannot be downloaded directly on the cluster, script 2b downloads them locally, and the user must upload the files to the cluster.
 
 wildfires_code_2a
