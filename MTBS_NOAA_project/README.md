@@ -53,7 +53,6 @@ wildfires_code_3
   Creates dummy (boolean) variables to encode geographic region membership, fire type, and month in preparation for regression analysis
   Creates columns storing the average ELM data across each week (3 weeks before, 2 weeks before, ... , 5 weeks after) and average ELM data across each month
 
-
 wildfires_code_4
     Data visualizations, including histograms, dot plots, and maps exploring the relationship between weather and fire size, and the differences between fire types
     Informative plots saved and pushed to github repositories. Uninformative plot code left, but plots not included in repo.
