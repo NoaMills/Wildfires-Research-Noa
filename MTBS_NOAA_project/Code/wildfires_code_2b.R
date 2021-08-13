@@ -36,7 +36,6 @@ for(i in 1:length(listOfStns)){
     print(paste0("written file ", listOfStns[i]))
     
   }
-  #print(i)
 }
 
 
@@ -45,7 +44,6 @@ write.csv(firedata, paste0("Data/firedata2b_", iteration, ".csv"))
 #make sure none of the files are empty
 #not sure how but some files are becoming empty. Redownloading seems to fix it.
 for(i in 1:length(listOfStns)){
-  #print(i)
   if(file.info(paste0("Data/noaa/noaadata/", listOfStns[i], ".csv"))$size <= 4){
     outfile <- paste0('Data/noaa/noaadata/updated', listOfStns[i], ".csv")
     df<-ghcnd(listOfStns[i], refresh=TRUE)
@@ -53,7 +51,3 @@ for(i in 1:length(listOfStns)){
     print(paste0("written file ", listOfStns[i]))
   }
 }
-#Sequential time elapsed: 243.17 
-#Time elapsed with dopar: 228.93
-#With registerDoMC: 228.93
-#With registerDoParallel: 78.65 s

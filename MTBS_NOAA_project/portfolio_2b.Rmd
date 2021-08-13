@@ -1,0 +1,78 @@
+# Wildfire Trends in the US: Section 2
+## By Noa Mills
+
+**The role of this script is to download the weather data files needed for each fire. This must be done in multiple rounds as data is screened for missing and faulty data. After running script 2a (remotely), transfer the firedata_2ai.csv (where i=iteration) to the local machine. Then, run this script to download new weather files to the local machine. Then, transfer the weather files to the cluster to be used in script 2c**
+
+**I recommend using the following command to transfer to the cluster ONLY the weather files which are not currently in the remote directory, which will save time:**
+
+*rsync -av --ignore-existing ./path/to/local/dir cruzid\@hb.ucsc.edu:~/Data/noaa/noaadata*
+
+First, we load libraries, and scan through the data files matching the regex "firedata2a_[0123456789]+.csv" to identify which iteration we are on, and therefore, which data file we should be using. In saving the dataframe to a csv and uploading it again, and index column 'X' is created. We remove this column.
+
+```{r, warning=FALSE}
+suppressMessages(library(rnoaa))
+suppressMessages(library(dplyr))
+
+files <- list.files(path="Data/", pattern="firedata2a_[0123456789]+.csv", recursive=FALSE)
+iteration <- 1
+for(file in files){
+  fileval <- gsub("firedata2a_", "", file)
+  fileval <- gsub(".csv", "", fileval)
+  fileval <- as.integer(fileval)
+  if(fileval > iteration){
+    iteration <- fileval
+  }
+}
+firedata <- read.csv(paste0("Data/firedata2a_", iteration, ".csv"), stringsAsFactors = FALSE)
+firedata <- firedata %>% select(!starts_with("X"))
+
+``` 
+
+Read in the stationsUS dataframe.
+
+```{r}
+stationsUS <- read.csv("Data/noaa/stationsUS.csv")
+```
+
+Create a list of all the closest weather stations that we need to pull weather data from.
+
+```{r}
+listOfStns <- unique(union(firedata$closestStnID_TMAX, firedata$closestStnID_TMIN))
+listOfStns <- unique(union(listOfStns, firedata$closestStnID_PRCP))
+listOfStns <- listOfStns[listOfStns != '0']
+```
+
+Then download the data files that have not yet been downloaded.
+
+```{r}
+if(!dir.exists("Data/noaa/noaadata")){
+  dir.create("Data/noaa/noaadata")
+}
+#download noaa data
+for(i in 1:length(listOfStns)){
+  if(!file.exists(paste0('Data/noaa/noaadata/', listOfStns[i], ".csv"))){
+    outfile <- paste0('Data/noaa/noaadata/', listOfStns[i], ".csv")
+    df<-ghcnd(listOfStns[i], refresh=TRUE)
+    write.csv(df, outfile) 
+    print(paste0("written file ", listOfStns[i]))
+    
+  }
+}
+
+write.csv(firedata, paste0("Data/firedata2b_", iteration, ".csv"))
+```
+
+For some unknown reason, sometimes the downloaded files are empty. I'm not sure why this happens or if it happens on other machines, but redownloading the empty files seems to fix the problem.
+
+```{r}
+for(i in 1:length(listOfStns)){
+  if(file.info(paste0("Data/noaa/noaadata/", listOfStns[i], ".csv"))$size <= 4){
+    outfile <- paste0('Data/noaa/noaadata/updated', listOfStns[i], ".csv")
+    df<-ghcnd(listOfStns[i], refresh=TRUE)
+    write.csv(df, outfile) 
+    print(paste0("written file ", listOfStns[i]))
+  }
+}
+```
+
+After running this script, transfer the downloaded files to the compute cluster and run script 2c.

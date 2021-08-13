@@ -1,10 +1,21 @@
+# Wildfire Trends in the US: Section 2b
+## By Noa Mills
+
+**The role of this script is to extract weather data from the NOAA weather station files to the firedata dataframe. For each wildfire, weather data is collected from the nearest station from 3 weeks before ignition until 5 weeks after ignition. This script identifies how many weather observations for each given fire are either missing (NA) or flagged by NOAA for quality control. If the number of missing or flagged observations for a given fire and given ELM exceeds the given threshold, then the UpdateELM attribute is set to TRUE and we find the next nearest station to pull data from.**
+
+**When a fire is marked for having too many missing or flagged observations for a given element, then we update the minDistELM value to the current distance between the fire and the station. Then, when looking for a new station, we only look for stations that are a greater distance away from the fire. This ensures that we don't look at the same station(s) again.**
+
+**If a fire has excessive missing or flagged data, then instead of just pulling new data for the days with missing or flagged data, we update ALL of the data. This way, for each fire and for each element, we have data from the same station for consistency.**
+
+First we load the necessary packages, the stationsUS data, and the firedata dataframe as we have done in the previous scripts.
+
+```{r}
 library(foreach)
 library(lubridate)
 library(doParallel)
 library(doMC)
 library(dplyr)
 library(matrixStats)
-#library(tidyverse)
 
 stationsUS <- read.csv("Data/noaa/stationsUS.csv")
 
@@ -19,9 +30,12 @@ for(file in files){
   }
 }
 firedata <- read.csv(paste0("Data/firedata2b_", iteration, ".csv"), stringsAsFactors = FALSE)
-
 firedata <- firedata %>% select(!starts_with("X"))
+```
 
+Next we define a function to extract NOAA data. This function takes as an input the station ID, the date of ignition, and the weather variable (element) to extract. This function then returns a dataframe with two columns: the first contains the index, which records the number of days before or after ignition (-21:35), and the second contains the weather variable value.
+
+```{r}
 noaaExtractRow <- function(stn, date, elm){
   if(!file.exists(paste0("Data/noaa/noaadata/", stn, ".csv"))){
     print(paste0("File missing: ", stn))
@@ -52,7 +66,11 @@ noaaExtractRow <- function(stn, date, elm){
   }
   return(df_out)
 }
+```
 
+Now, we begin to edit the firedata dataframe. We identify the fires that have UpdateELM set to TRUE for any ELM, and we set the weather observations in these rows to NA. In doing so, we remove the whole row weather observations that contain missing or flagged data.
+
+```{r}
 for(i in -21:35){
   if(i < 0){
     varnameTMAX <- paste0("TMAX.", -i)
@@ -79,17 +97,17 @@ for(i in -21:35){
     firedata[[varnamePRCP]] <- NA
   }
 }
+```
 
+Now we create a subset of the firedata dataframe which contains only the fires that need updated weather data.
+```{r}
 firedataToUpdate <- firedata[which(firedata$UpdateTMAX == TRUE | 
                                      firedata$UpdateTMIN == TRUE | firedata$UpdatePRCP == TRUE),]
+```
 
+Next we extract new weather data for each fire in the firedataToUpdate dataframe. The results are stored in the dataframe firedataOut.
 
-#First, extract data from firedataToUpdate to firedataOut
-#Then, transfer updated data to firedata
-
-#foreach (row in 1:nrow(firedata)) %doPar% 
-#no_cores <- detectCores()
-#cl <- makeCluster(no_cores)
+```{r}
 registerDoParallel()
 ptm <- proc.time()
 firedataOut <- foreach (row=1:nrow(firedataToUpdate), .combine=rbind) %dopar% {
@@ -128,27 +146,22 @@ firedataOut <- foreach (row=1:nrow(firedataToUpdate), .combine=rbind) %dopar% {
   newrow
 }
 proc.time()-ptm
+```
 
-#write.csv(firedataOut, "Data/firedataOutTest.csv")
+We go through the firedataOut dataframe and transfer the data to the firedata dataframe.
 
-#Local, 20 rows: 7.85
-#Local, 200 rows: elapsed = 78.34
-#Local, 500 rows: elapsed = 169.78, 133.57
-
-#firedata <- firedata %>% select(!starts_with("X"))
-
-#print the number of flags for each element before the flags are updated
-#nrow(firedata[which(firedata$flagTMAX >= minFlag | firedata$naTMAX >= minNA),])
-#nrow(firedata[which(firedata$flagTMIN >= minFlag | firedata$naTMIN >= minNA),])
-#nrow(firedata[which(firedata$flagPRCP >= minFlag | firedata$naPRCP >= minNA),])
-
+```{r}
 for(row in 1:nrow(firedataOut)){
   print(paste0("Incorporating updated data with original data frame. Row ", row, " of ", nrow(firedataOut)))
   firedata[which(firedata$Event_ID == firedataOut$Event_ID[row]),] <- firedataOut[row,]
 }
+```
 
+Now we count the number of NA and flagged observations in each row. If the number exceeds either the threshold for NA (minNA = 15) or the threshold for flags (minFlag = 10), then we change the UpdateELM variable to TRUE so we know to find the next nearest station.
 
-#firedata now has updated values.
+We also have the variable maxDist set to 250. This ensures that we stop looking for the next nearest station once we've reached a radius of 250 km away from the fire, at which point the data is completely irrelevant and there's no point in continuing the search. **When building the model, we choose to include fires with weather data that is much closer than 250 km away.**
+
+```{r}
 
 firedata$flagTMAX <- rowSums(firedata %>% select(starts_with("TMAX")) == "flagged", na.rm = TRUE)
 firedata$flagTMIN <- rowSums(firedata %>% select(starts_with("TMIN")) == "flagged", na.rm = TRUE)
@@ -176,17 +189,24 @@ if(nrow(firedata[which((firedata$flagPRCP >= minFlag | firedata$naPRCP >= minNA)
   firedata[which((firedata$flagPRCP >= minFlag | firedata$naPRCP >= minNA) & firedata$closestStnDist_PRCP <= maxDist),]$UpdatePRCP <- TRUE
   print("PRCP")
 }
+```
 
-#Update minimum distances to ensure that the same station isn't checked twice
+Now, for the fires with an UpdateELM flag set to true, we set the minDistELM variable to the current distance between the station and the fire. That way, when looking for the next nearest station, we don't look at the current, flagged, station, or any closer stations that have already been tried.
+```{r}
 firedata[which(firedata$UpdateTMAX == TRUE),]$minDistTMAX <- 
   firedata[which(firedata$UpdateTMAX == TRUE),]$closestStnDist_TMAX
 firedata[which(firedata$UpdateTMIN == TRUE),]$minDistTMIN <- 
   firedata[which(firedata$UpdateTMIN == TRUE),]$closestStnDist_TMIN
 firedata[which(firedata$UpdatePRCP == TRUE),]$minDistPRCP <- 
   firedata[which(firedata$UpdatePRCP == TRUE),]$closestStnDist_PRCP
+```
 
+Lastly, we print the number of fires that still need new data, and save the firedata dataframe.
+
+```{r}
 print(paste0("UpdateTMAX ", nrow(firedata[which(firedata$UpdateTMAX == TRUE),])))
 print(paste0("UpdateTMIN ", nrow(firedata[which(firedata$UpdateTMIN == TRUE),])))
 print(paste0("UpdatePRCP ", nrow(firedata[which(firedata$UpdatePRCP == TRUE),])))
 write.csv(firedata, paste0("Data/firedata2c_", iteration, ".csv"))
 print(paste0("Done, 2c, iteration: ", iteration))
+```
