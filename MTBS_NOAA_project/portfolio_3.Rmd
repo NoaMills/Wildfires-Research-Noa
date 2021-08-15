@@ -1,3 +1,11 @@
+# Wildfire Trends in the US: Section 3
+## By Noa Mills
+
+**In this script, we identify the geographic region and state of each fire, and calculate averages of weather variables for each fire across various timeframes. We also create dummy (boolean) variables so we can use the categorical variables present in the dataframe in our linear regression model.**
+
+First, as before, we load the needed packages and the firedata dataframe.
+
+```{r, message=FALSE, warning=FALSE}
 library(rio)
 library(dplyr)
 library(tidyr)
@@ -24,24 +32,29 @@ for(file in files){
   }
 }
 firedata <- read.csv(paste0("Data/firedata2b_", iteration, ".csv"), stringsAsFactors = FALSE)
+```
 
+Next, we remove any fires from the dataframe that fail to meet our threshold requirements for the numbers of flagged or missing data observations. In scripts 2a, 2b and 2c we iterated through nearest stations to find the nearest station with enough good data. However, if we exceeded a distance of 250 km away from the fire, we stopped. This code block ensures that those fires are disregarded as they aren't associated with relevant weather data. When run with MTBS data up until 2018, only one fire was removed from the firedata dataset in this code block.
+
+```{r}
 minFlag = 10
 minNA = 15
-firedata <- firedata %>% filter(flagTMAX < minFlag & flagTMIN < minFlag & flagPRCP < minFlag &
-                                  naTMAX < minNA & naTMIN < minNA & naPRCP < minNA)
+firedata <- firedata %>% filter(flagTMAX < minFlag & flagTMIN < minFlag & flagPRCP < minFlag & naTMAX < minNA & naTMIN < minNA & naPRCP < minNA)
 
+```
 
-#########
-#Section 1: Identify state of each fire. Group fires by state regions with common climates as described by NOAA: https://www.ncdc.noaa.gov/monitoring-references/maps/us-climate-regions.php
-#########
+MTBS identifies the assessment type of each fire as Initial or Extended. Initial assessments were conducted soon after the fire in ecosystems such as grasslands that experience quick regeneration, whereas extended assessments were conducted in ecosystems such as forests and woodlands where the effects of fire persist beyond the next growing season. Thus, assessment type is a rough proxy for land type.
 
+If only a single image was used to perform the assessment, then the assessment type is appended with the abbreviation "SS" which stands for single source. Fires without this abbreviation were assessed with both before and after images when constructing a digital fire perimeter. When building our model to predict wildfire size, we care much more about the assessment type than the number of images used to conduct the assessment, so here we remove the "SS" abbreviations to merge single source and multi source assessment types into the same category.
 
-#Merge the attribute levels of Assessment type so "Initial" and "Initial (SS)" are both stored as "Initial".
-
+```{r}
 firedata[which(firedata$Asmnt_Type == "Initial (SS)"),]$Asmnt_Type <- "Initial"
 firedata[which(firedata$Asmnt_Type == "Extended (SS)"),]$Asmnt_Type <- "Extended"
+```
 
-#Download NWS state and territory shapefiles
+Now we download shapefiles from the National Weather Service that delineates state boundaries.
+
+```{r}
 if(!dir.exists("Data/nws")){
   dir.create("Data/nws")
 }
@@ -55,10 +68,11 @@ if(!file.exists('Data/nws/s_11au16.shp')){
 states_and_territories <- st_read("Data/nws/s_11au16.shp")
 states_and_territories %>%
   filter(!NAME %in% c("American Samoa","Guam", "Northern Marianas", "Virgin Islands"))
+```
 
-#Code to convert long/lat to state provided by https://stackoverflow.com/questions/8751497/latitude-longitude-coordinates-to-state-code-in-r
+We use a function provided by [this stackoverflow post](https://stackoverflow.com/questions/8751497/latitude-longitude-coordinates-to-state-code-in-r) to identify state membership based on longitude and latitude.
 
-
+```{r}
 ## pointsDF: A data.frame whose first column contains longitudes and
 ##           whose second column contains latitudes.
 ##
@@ -83,30 +97,33 @@ lonlat_to_state <- function(pointsDF,
   state_names[ii]
 }
 #end of code block borrowed from stack to convert long/lat to state
+```
 
-#identify the state of each fire in firedata and group by region
+We use this function to identify the state of each fire.
+```{r}
 lonlatvals<-select(firedata, BurnBndLon, BurnBndLat)
 firedata$state <- lonlat_to_state(lonlatvals)
+```
 
-#36 lat/long coordinates are either just out of the boundary of the US, on a body of water, or otherwise not assigned their given state
-#These observations were given state values individually
+Using the MTBS data up until 2018, after applying this function to identify statehood, there are still 36 fires whose state is not identified, and where the function returns NA. This is often because the epicenter of the fire is just outside of the US boundary, or is in a body of water. So, I created maps of each of these fires and manually identify the state that the fire is in. Then, I created a vector of state names that corresponds to the fires, and updated the state names accordingly. This code only needs to be run (and the vector of state names manually updated) each time new data is released from MTBS, so it is commented out in the code file, and is not evaluated here.
 
-#if(!dir.exists("Output/stateFinder")){
-#  dir.create("Output/stateFinder")
-#}
-#firedataStateNA <- firedata[which(is.na(state)),]
-#for(i in 1:nrow(firedataStateNA)){
-#  firedata_row <- firedataStateNA[i,]
-#  pointLon <- firedata_row$BurnBndLon[1]
-#  pointLat <- firedata_row$BurnBndLat[1]
-#  plot <- ggplot(data=states_and_territories)+
-#    geom_sf()+
-#    geom_point(data=firedata_row, mapping = aes(x=BurnBndLon, y=BurnBndLat), color="red",alpha=0.8)+
-#    coord_sf(xlim=c(pointLon - 8,pointLon + 8), ylim=c(pointLat - 6, pointLat + 6))+
-#    #scale_size_continuous(range=c(2,9))+
-#    theme_void()
-#  ggsave(paste0("Output/stateFinder/map", i, ".png"), plot, width=15)
-#}
+```{r, eval=FALSE}
+if(!dir.exists("Output/stateFinder")){
+  dir.create("Output/stateFinder")
+}
+firedataStateNA <- firedata[which(is.na(state)),]
+for(i in 1:nrow(firedataStateNA)){
+  firedata_row <- firedataStateNA[i,]
+  pointLon <- firedata_row$BurnBndLon[1]
+  pointLat <- firedata_row$BurnBndLat[1]
+  plot <- ggplot(data=states_and_territories)+
+    geom_sf()+
+    geom_point(data=firedata_row, mapping = aes(x=BurnBndLon, y=BurnBndLat), color="red",alpha=0.8)+
+    coord_sf(xlim=c(pointLon - 8,pointLon + 8), ylim=c(pointLat - 6, pointLat + 6))+
+    #scale_size_continuous(range=c(2,9))+
+    theme_void()
+  ggsave(paste0("Output/stateFinder/map", i, ".png"), plot, width=15)
+}
 
 firedataStateNA$state <- c("Washington", "Minnesota", "California", "New Mexico", "Florida", "New Mexico", "Florida", "Florida",
                            "Minnesota", "Montana", "California", "Alaska", "Alaska", "Florida", "Florida", "Alaska",
@@ -122,7 +139,11 @@ for(i in 1:nrow(firedataStateNA)){
   firedata[which(firedata$Event_ID == firedataStateNA$Event_ID[i]),] <- firedataStateNA[i,]
   print(paste0("Replaced: ", firedataStateNA$Event_ID[i], " state with ", firedataStateNA$state[i]))
 }
-#Assign region values based on state
+```
+
+Now, we identify the geographic region of each fire based on state membership. These regions are defined by the National Weather Service.
+
+```{r}
 firedata$region <- "region"
 firedata[which(firedata$state %in% c("California", "Nevada")),]$region <- "West"
 firedata[which(firedata$state %in% c("Utah", "Colorado", "Arizona", "New Mexico")),]$region <- "Southwest"
@@ -136,32 +157,11 @@ firedata[which(firedata$state %in% c("Maryland", "Delaware", "New Jersey", "Penn
 firedata[which(firedata$state == "Alaska"),]$region <- "Alaska"
 firedata[which(firedata$state == "Hawaii"),]$region <- "Hawaii"
 firedata[which(firedata$state == "Puerto Rico"),]$region <- "Puerto Rico"
+```
 
-########
-#Section 2
-########
+Next we create dummy (boolean) variables for fire type, assessment type, region, month, and year group (set of 5 years). This allows us to include this categorical data in our linear regression model.
 
-#The assessment type (Initial vs Extended) was determined based on the type of ecosystem.
-#Extended assessments were used for forests, woodlands, shrublands, etc. where wildfires have longer lasting impacts
-#Initial assessments were used for grasslands where ecosystems tend to recover by the next growing season
-
-#For each region, we use the following abbreviated region names:
-
-#SW = Southwest
-#SE = Southeast
-#S = South
-#W = West
-#NRP = Northern Rockies and Plains
-#OV = Ohio Valley
-#NW = Northwest
-#NE = Northeast
-#UM = Upper Midwest
-#AL = Alaska
-#PR = Puerto Rico
-#HI = Hawaii
-
-#Create dummy variables for categorical variables.
-
+```{r}
 #Dummy variables for fire type
 firedata$isRx <- 0
 firedata$isWf <- 0
@@ -241,11 +241,15 @@ firedata[which(firedata$IG_YEAR >=1998 & firedata$IG_YEAR <= 2003),]$year_group 
 firedata[which(firedata$IG_YEAR >=2004 & firedata$IG_YEAR <= 2008),]$year_group <- "2004-2008"
 firedata[which(firedata$IG_YEAR >=2009 & firedata$IG_YEAR <= 2013),]$year_group <- "2009-2013"
 firedata[which(firedata$IG_YEAR >=2014 & firedata$IG_YEAR <= 2018),]$year_group <- "2014-2018"
+```
 
-#Calculate averages of weather observations.
-#ELMavg represents the average across the entire timespan (3 weeks before until 5 weeks after ignition)
-#ELMavg.i represents the weekly average i weeks before ignition
-#ELMavgi represents the weekly average i weeks after ignition
+Lastly, we calculate averages of the weather variables.
+ELMavg represents the average across the entire timespan (3 weeks before until 5 weeks after ignition)
+ELMavg.i represents the weekly average i weeks before ignition
+ELMavgi represents the weekly average i weeks after ignition
+
+```{r}
+
 firedata$TMAXavg <- rowMeans(firedata %>% select(starts_with("TMAX")), na.rm=TRUE)
 firedata$prevTMAXavg <- rowMeans(firedata[,c("TMAX.3", "TMAX.2", "TMAX.1", "TMAX0", 
                                               "TMAX1", "TMAX2", "TMAX3")], na.rm=TRUE)
@@ -306,4 +310,4 @@ firedata$PRCPavg4 <- rowMeans(firedata[,c("PRCP29", "PRCP30", "PRCP31", "PRCP32"
                                           "PRCP33", "PRCP34", "PRCP35")], na.rm=TRUE)
 
 write.csv(firedata, "Data/firedata3.csv")
-
+```

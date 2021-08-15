@@ -9,7 +9,7 @@
 
 First we load the necessary packages, the stationsUS data, and the firedata dataframe as we have done in the previous scripts.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(foreach)
 library(lubridate)
 library(doParallel)
@@ -105,9 +105,9 @@ firedataToUpdate <- firedata[which(firedata$UpdateTMAX == TRUE |
                                      firedata$UpdateTMIN == TRUE | firedata$UpdatePRCP == TRUE),]
 ```
 
-Next we extract new weather data for each fire in the firedataToUpdate dataframe. The results are stored in the dataframe firedataOut.
+Next we extract new weather data for each fire in the firedataToUpdate dataframe. The results are stored in the dataframe firedataOut. Weather variables are stored in columns labelled "ELMi" where ELM is the weather variable (TMAX, TMIN, or PRCP), and i is the number of days since ignition. Note that instead of including a minus sign, we use a period '.' to indicate that the observation occured i days before ignition. For example, TMAX.3 records the temperature max 3 days before ignition, whereas TMAX3 records 3 days after ignition. This is done to prevent bugs in the splicing of column names down the line.
 
-```{r}
+```{r, eval=FALSE}
 registerDoParallel()
 ptm <- proc.time()
 firedataOut <- foreach (row=1:nrow(firedataToUpdate), .combine=rbind) %dopar% {
@@ -150,7 +150,7 @@ proc.time()-ptm
 
 We go through the firedataOut dataframe and transfer the data to the firedata dataframe.
 
-```{r}
+```{r, eval=FALSE}
 for(row in 1:nrow(firedataOut)){
   print(paste0("Incorporating updated data with original data frame. Row ", row, " of ", nrow(firedataOut)))
   firedata[which(firedata$Event_ID == firedataOut$Event_ID[row]),] <- firedataOut[row,]
@@ -161,7 +161,7 @@ Now we count the number of NA and flagged observations in each row. If the numbe
 
 We also have the variable maxDist set to 250. This ensures that we stop looking for the next nearest station once we've reached a radius of 250 km away from the fire, at which point the data is completely irrelevant and there's no point in continuing the search. **When building the model, we choose to include fires with weather data that is much closer than 250 km away.**
 
-```{r}
+```{r, eval=FALSE}
 
 firedata$flagTMAX <- rowSums(firedata %>% select(starts_with("TMAX")) == "flagged", na.rm = TRUE)
 firedata$flagTMIN <- rowSums(firedata %>% select(starts_with("TMIN")) == "flagged", na.rm = TRUE)
@@ -192,7 +192,7 @@ if(nrow(firedata[which((firedata$flagPRCP >= minFlag | firedata$naPRCP >= minNA)
 ```
 
 Now, for the fires with an UpdateELM flag set to true, we set the minDistELM variable to the current distance between the station and the fire. That way, when looking for the next nearest station, we don't look at the current, flagged, station, or any closer stations that have already been tried.
-```{r}
+```{r, eval=FALSE}
 firedata[which(firedata$UpdateTMAX == TRUE),]$minDistTMAX <- 
   firedata[which(firedata$UpdateTMAX == TRUE),]$closestStnDist_TMAX
 firedata[which(firedata$UpdateTMIN == TRUE),]$minDistTMIN <- 

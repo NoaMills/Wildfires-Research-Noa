@@ -29,7 +29,7 @@ firedataDistRx <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestSt
 
 
 #########
-#Section 7: Exploratory data analysis and data visualization
+#Exploratory data analysis and data visualization
 #########
 
 #View correlations between all the weather variables
@@ -53,12 +53,13 @@ hist(log(firedataWf$BurnBndAc), xlab="Log Acres Burned", main="Histogram of Log 
 #explore TMIN, TMAX, PRCP and year vs burned area
 ggplot(firedataWf, aes(x=as.Date(IG_DATE), y=log(BurnBndAc), color=Asmnt_Type))+
   geom_point(alpha=0.08)+
-  scale_x_date()
+  scale_x_date()+
+  xlab("Date")+
+  ylab("Log Acres Burned")
 #^Not a very informative plot
 
 ggplot(firedata %>% filter(Incid_Type == "Wildfire"), aes(x=log(BurnBndAc), fill = year_group))+
   geom_histogram()+
-  #facet_wrap(vars(Incid_Type))+
   xlab("Log Burned Acreage")+
   ggtitle("Burned Acreage of Wildfires by Year")+
   labs(fill="Year")

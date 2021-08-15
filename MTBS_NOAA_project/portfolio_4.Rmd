@@ -1,0 +1,66 @@
+# Wildfire Trends in the US: Section 3
+## By Noa Mills
+
+**This script produces data visualizations. The informative visualizations are saved separately and pushed to the github repo. The uninformative visualizations are not saved, but are visible here and the code is left here for future students to tinker with.**
+
+Load needed packages and the firedata dataframe. Create dataframes that contain only wildfires vs only prescribed burns. Create additional dataframes that are also split by fire type, include only wildfires that are associated with weather data collected from stations 25 km away or less, and that have a burn boundary acreage of at least 1000.
+
+```{r, message=FALSE, warning=FALSE}
+library(rio)
+library(dplyr)
+library(tidyr)
+library(rgdal)
+library(base)
+library(profvis)
+library(rnoaa)
+library(lubridate)
+library(sf)
+library(spData)
+library(tidyverse)
+library(data.table)
+library(maptools)
+library(mapproj)
+library(rgeos)
+library(rgdal)
+library(ggplot2)
+library(reshape2)
+
+firedata <- read.csv("Data/firedata3.csv")
+firedata$isFireSeason <- as.factor(firedata$isFireSeason)
+firedataWf <- firedata[which(firedata$Incid_Type == "Wildfire"),]
+firedataRx <- firedata[which(firedata$Incid_Type == "Prescribed Fire"),]
+firedataDistWf <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestStnDist_TMAX < 25 & firedata$closestStnDist_TMIN < 25 & firedata$closestStnDist_TMAX < 25 & firedata$Incid_Type == "Wildfire"),]
+firedataDistRx <- firedata[which(firedata$BurnBndAc >= 1000 & firedata$closestStnDist_TMAX < 25 & firedata$closestStnDist_TMIN < 25 & firedata$closestStnDist_TMAX < 25 & firedata$Incid_Type == "Prescribed Fire"),]
+
+if(!dir.exists("Output")){
+  dir.create("Output")
+}
+```
+
+Create a correlation matrix between all the weather variables.
+```{r}
+cormat <- cor(firedata %>% select(starts_with("TMAXavg") | starts_with("TMINavg") | starts_with("PRCPavg")), use="complete.obs")
+cormat_melt <- melt(cormat)
+head(cormat_melt)
+
+ggplot(data = cormat_melt, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+ 
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Create histograms of acreage burned, and log acreage burned. The histogram of acreage burned is highly skewed, and even the histogram of log acreage is skewed, however it's a 'nicer' (less egregiously skewed) distribution to work with when predicting the size of a fire.
+
+```{r}
+hist(firedataWf$BurnBndAc/1000, xlab="Thousand Acres Burned", main="Histogram of Burned Acreage")
+hist(log(firedataWf$BurnBndAc), xlab="Log Acres Burned", main="Histogram of Log Burned Acreage")
+```
+
+I was hoping this next plot would be more informative, but it's hard to read. This plot is intended to show how the frequency of fires and the size of fires has changed over time. Each dot represents a fire, and the color represents the assessment type. You can vaguely see that there is an upward trend in the size of fires, and that the dots are more clustered on the right hand side of the plot, however this information isn't very readable.
+
+```{r}
+ggplot(firedataWf, aes(x=as.Date(IG_DATE), y=log(BurnBndAc), color=Asmnt_Type))+
+  geom_point(alpha=0.08)+
+  scale_x_date()+
+  xlab("Date")+
+  ylab("Log Acres Burned")
+```
